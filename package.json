@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "biome check",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "lint:fix": "biome check --write",
+    "prepare": "lefthook install"
   },
   "dependencies": {
     "next": "16.0.7",
@@ -21,6 +23,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "lefthook": "^2.0.7",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
