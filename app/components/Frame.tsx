@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -29,17 +30,20 @@ export default function Frame({ children, active = "home" }: Props) {
           >
             ≡
           </button>
-          <h1 className="text-sm font-semibold tracking-tight">
-            <span className="text-pink-500">ど</span>
-            <span className="text-orange-400">ん</span>
-            <span className="text-yellow-400">ど</span>
-            <span className="text-green-400">ぅ</span>
-            <span className="text-sky-400">ん</span>
-            <span className="ml-1">片付けたい！</span>
-          </h1>
-          <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white">
-            ぎ
+          <div className="mx-2">
+            <Image
+              src="/dondonkataduketai.png"
+              alt="どんどぅん片付けたい！"
+              width={220}
+              height={28}
+              priority
+            />
           </div>
+          <Link href="/profile" aria-label="プロフィール設定へ">
+            <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white">
+              ぎ
+            </div>
+          </Link>
         </header>
 
         {/* Content area */}
