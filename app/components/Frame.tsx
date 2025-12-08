@@ -22,14 +22,6 @@ export default function Frame({ children, active = "home" }: Props) {
       <div className="w-[360px] h-[780px] border-2 border-zinc-500 rounded-xl bg-white shadow-md flex flex-col overflow-hidden">
         {/* Header */}
         <header className="flex items-center justify-between px-3 py-3 border-b border-zinc-200">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((s) => !s)}
-            aria-expanded={menuOpen}
-            className="w-8 h-8 rounded-md border border-zinc-300 flex items-center justify-center"
-          >
-            ≡
-          </button>
           <div className="mx-2">
             <Image
               src="/dondonkataduketai.png"
