@@ -82,7 +82,13 @@ export default function Frame({ children, active = "home" }: Props) {
             <span className="text-2xl">🏠</span>
           </Link>
           <Link href="/music" className={tabClass("music")}>
-            <span className="text-sm font-medium">MUSIC</span>
+            <span className="text-base font-medium flex items-center gap-1">
+              <span className="text-red-500">お</span>
+              <span className="text-orange-400">ん</span>
+              <span className="text-yellow-400">が</span>
+              <span className="text-green-400">く</span>
+              <span className="text-sky-400">♪</span>
+            </span>
           </Link>
         </nav>
       </div>
