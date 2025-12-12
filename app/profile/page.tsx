@@ -1,61 +1,71 @@
+"use client";
+
+import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import Frame from "../components/Frame";
 
 export default function ProfilePage() {
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const v = localStorage.getItem("profileAvatar");
+      if (v) setAvatarSrc(v);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-6">
-      <div className="w-[360px] h-[780px] border-2 border-zinc-500 rounded-xl bg-white shadow-md flex flex-col overflow-hidden">
-        <header className="px-4 py-3 border-b">
-          <Link href="/" className="text-sm text-zinc-600">
-            ← 戻る
-          </Link>
-        </header>
-
-        <main className="flex-1 p-6 overflow-auto">
-          <h2 className="text-lg font-semibold mb-4">
-            プロフィール設定（モック）
-          </h2>
-
-          <div className="space-y-4">
-            <label className="text-sm block">
-              名前
-              <input
-                className="mt-1 w-full rounded border px-3 py-2"
-                defaultValue="ぎユーザー"
+    <Frame active="home">
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-4">
+            {avatarSrc ? (
+              <Image
+                src={avatarSrc}
+                alt="アイコン"
+                width={80}
+                height={80}
+                unoptimized
+                className="w-20 h-20 rounded-full border-2 border-zinc-300 object-cover"
               />
-            </label>
-
-            <label className="text-sm block">
-              メール
-              <input
-                className="mt-1 w-full rounded border px-3 py-2"
-                defaultValue="user@example.com"
-              />
-            </label>
-
-            <div className="text-sm block">
-              <div className="font-medium">アバター</div>
-              <div className="mt-2">
-                <div className="w-12 h-12 rounded-full bg-blue-400 flex items-center justify-center text-white">
-                  ぎ
-                </div>
+            ) : (
+              <div className="w-20 h-20 rounded-full border-2 border-zinc-300 flex items-center justify-center text-sm text-zinc-500 bg-white">
+                アイコン
               </div>
-            </div>
+            )}
 
-            <div className="pt-4">
-              <button
-                type="button"
-                className="w-full rounded-md bg-black text-white py-2"
-              >
-                保存する（モック）
-              </button>
+            <div className="pt-1">
+              <div className="text-2xl font-semibold">名前</div>
+              <div className="text-sm text-zinc-500 mt-1">@user_id</div>
             </div>
           </div>
-        </main>
 
-        <footer className="h-14 border-t flex items-center justify-center text-sm text-zinc-500">
-          プロフィールはローカルで保存されません（モック）
-        </footer>
+          <Link href="/profile/settings" aria-label="設定" className="p-2">
+            <Image src="/setting.webp" alt="設定" width={35} height={35} />
+          </Link>
+        </div>
+
+        <div className="mb-4">
+          <Link
+            href="/profile/friends"
+            aria-label="フレンド検索へ移動"
+            className="text-sm text-zinc-700 flex items-center gap-2"
+          >
+            <span>フレンド検索</span>
+            <span className="text-xs">🔍</span>
+          </Link>
+        </div>
+
+        <div className="rounded-md border border-zinc-300 h-[60vh] p-6 flex items-center justify-center text-zinc-500 text-sm bg-white">
+          <div className="text-center">
+            <div className="text-sm">・ ここら辺に積み上げたタスク</div>
+          </div>
+        </div>
       </div>
-    </div>
+    </Frame>
   );
 }

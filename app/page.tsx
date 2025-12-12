@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <Frame active="home">
       <div className="flex flex-col items-center gap-4">
-        <h2 className="text-lg font-semibold">ようこそ</h2>
+        <h2 className="text-lg font-semibold">達成率</h2>
         <p className="text-sm text-zinc-600">
           片付けを楽しくするシンプルなTODOアプリのモックです。
         </p>
