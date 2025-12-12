@@ -22,12 +22,21 @@ export const getTodos = async () => {
 };
 
 // タスクを追加する
-export const addTodo = async (title: string, userId: string) => {
+export const addTodo = async (
+  title: string,
+  userId: string,
+  estimated: number,
+  startAt: string | undefined,
+  dueAt?: string | undefined,
+) => {
   // DBに入れるデータ
   const newTodo: NewTodo = {
     title,
     user_id: userId,
-    estimated_time: 60, // デフォルト値（後でUIで変えられるように）
+    due_at: dueAt,
+    estimated_time: estimated,
+    start_at: startAt,
+    is_completed: false,
   };
 
   const { data, error } = await supabase

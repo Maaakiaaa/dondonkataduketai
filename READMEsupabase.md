@@ -15,6 +15,7 @@ npx supabase gen types typescript --project-id "どぅんどぅん片付けた�
 ユーザー登録時に **Trigger** で自動生成
   * `id` (uuid, PK): `auth.users.id` と同期
   * `username` (text): 表示名
+  * `avater_url` (text):アイコン画像のパス
   * **権限:** 誰でも閲覧可(Select)、編集(Update)は本人のみ。
 
 ### **`todos`** (タスク)
