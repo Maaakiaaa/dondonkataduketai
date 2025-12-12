@@ -15,6 +15,7 @@
     "@chakra-ui/react": "^3.30.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@heroui/link": "^2.2.23",
     "@supabase/supabase-js": "^2.87.1",
     "framer-motion": "^12.23.25",
     "next": "16.0.7",
