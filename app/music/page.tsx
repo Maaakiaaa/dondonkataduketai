@@ -95,6 +95,7 @@ export default function MusicPage() {
   const durationInputId = useId();
   const genreInputId = useId();
   const taskSelectId = useId();
+  const trackSourceId = useId();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tracks, setTracks] = useState<TracksData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +103,7 @@ export default function MusicPage() {
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [selectedGenre, setSelectedGenre] = useState<string>("");
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
+  const [trackSource, setTrackSource] = useState<"user" | "spotify">("user");
   const [todos, setTodos] = useState<Todo[]>([]);
   const [generatedPlaylist, setGeneratedPlaylist] = useState<Track[] | null>(
     null,
@@ -337,6 +339,7 @@ export default function MusicPage() {
         body: JSON.stringify({
           durationMinutes,
           genre: selectedGenre || undefined,
+          trackSource,
         }),
       });
 
@@ -670,6 +673,52 @@ export default function MusicPage() {
                       </p>
                     )}
                   </div>
+
+                  <fieldset>
+                    <legend className="block text-sm font-medium mb-2">
+                      楽曲の選択元
+                    </legend>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          id={`${trackSourceId}-user`}
+                          name="trackSource"
+                          value="user"
+                          checked={trackSource === "user"}
+                          onChange={(e) =>
+                            setTrackSource(e.target.value as "user" | "spotify")
+                          }
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm">
+                          マイライブラリ（お気に入り・よく聴く曲）
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          id={`${trackSourceId}-spotify`}
+                          name="trackSource"
+                          value="spotify"
+                          checked={trackSource === "spotify"}
+                          onChange={(e) =>
+                            setTrackSource(e.target.value as "user" | "spotify")
+                          }
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm">
+                          Spotify全体（全楽曲からAIが選択）
+                        </span>
+                      </label>
+                    </div>
+                    {trackSource === "spotify" && selectedGenre === "" && (
+                      <p className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                        ⚠️
+                        ジャンルを指定しないと、AIが幅広い楽曲から選択します。好みに合わせてジャンルを選択することをおすすめします。
+                      </p>
+                    )}
+                  </fieldset>
 
                   <div>
                     <label
