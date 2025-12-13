@@ -170,14 +170,35 @@ export default function TodoPage() {
                 <div className="flex items-start gap-3">
                   {/* Checkbox */}
                   <div className="pt-1">
-                    <input
-                      type="checkbox"
-                      checked={todo.is_completed ?? false}
-                      onChange={() =>
-                        handleToggle(todo.id, todo.is_completed ?? false)
-                      }
-                      className="w-6 h-6 cursor-pointer appearance-none border-2 border-black rounded-md checked:bg-[#4ECDC4] checked:after:content-['✓'] checked:after:text-white checked:after:flex checked:after:justify-center checked:after:items-center checked:after:text-sm checked:after:font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4ECDC4]"
-                    />
+                    <label className="inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={todo.is_completed ?? false}
+                        onChange={() =>
+                          handleToggle(todo.id, todo.is_completed ?? false)
+                        }
+                        className="sr-only peer"
+                        aria-label={todo.title || "タスク"}
+                      />
+                      <span
+                        className="w-6 h-6 flex items-center justify-center border-2 border-black rounded-md bg-white peer-checked:bg-[#4ECDC4] transition-colors duration-200
+                        peer-focus:ring-2 peer-focus:ring-offset-2 peer-focus:ring-[#4ECDC4]"
+                      >
+                        {/* Checkmark */}
+                        <svg
+                          className={`w-4 h-4 text-white ${todo.is_completed ? "opacity-100" : "opacity-0"}`}
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <title>Checkmark icon</title>
+                          <polyline points="5 11 9 15 15 7" />
+                        </svg>
+                      </span>
+                    </label>
                   </div>
 
                   {/* Content */}

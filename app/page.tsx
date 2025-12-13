@@ -2,9 +2,14 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { FiAlertCircle, FiClock, FiPlayCircle } from "react-icons/fi";
 import { getCurrentUser } from "@/features/auth/api";
 import { getAchievementRate, getFriends } from "@/features/friendship/api";
-import { getTodos, type Todo } from "@/features/todos/api";
+import {
+  getTodos,
+  type Todo,
+  toggleTodoCompletion,
+} from "@/features/todos/api";
 import Frame from "./components/Frame";
 
 type FriendStatus = {
@@ -21,7 +26,7 @@ const getTodayStart = () => {
 };
 
 // ヘルパー関数: 明日の開始時刻を取得
-const getTodayEnd = () => {
+const getTomorrowStart = () => {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 };
@@ -30,6 +35,25 @@ export default function Home() {
   const [myTasks, setMyTasks] = useState<Todo[]>([]);
   const [friendStatuses, setFriendStatuses] = useState<FriendStatus[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleToggle = async (id: string, currentStatus: boolean) => {
+    try {
+      const updated = await toggleTodoCompletion(id, !currentStatus);
+      setMyTasks((prev) => {
+        const newTasks = prev.map((t) => (t.id === id ? updated : t));
+        // ソート: 未完了が先、その中で期限が古い順
+        return newTasks.sort((a, b) => {
+          if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1;
+          return (
+            new Date(a.due_at || 0).getTime() -
+            new Date(b.due_at || 0).getTime()
+          );
+        });
+      });
+    } catch (e) {
+      alert("更新失敗");
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,18 +69,17 @@ export default function Home() {
         // 今日の0時0分0秒
         const todayStart = getTodayStart();
         // 明日の0時0分0秒
-        const todayEnd = getTodayEnd();
+        const tomorrowStart = getTomorrowStart();
 
         const filteredTodos = allTodos.filter((todo) => {
           // 自分のタスクのみ
           if (!todo.user_id || todo.user_id !== user.id) return false;
-          // DB仕様上、due_atは必ず値が入るが、念のためチェック
-          if (!todo.due_at) return false;
+          // DB仕様上、due_atは必ず値が入るため、nullチェックは不要
 
-          const dueDate = new Date(todo.due_at);
+          const dueDate = new Date(todo.due_at ?? 0);
 
           // 今日のタスク (期限が今日の範囲内)
-          const isToday = dueDate >= todayStart && dueDate < todayEnd;
+          const isToday = dueDate >= todayStart && dueDate < tomorrowStart;
 
           // 期限切れ未完了 (期限が今日より前 かつ 未完了)
           const isOverdue = dueDate < todayStart && !todo.is_completed;
@@ -126,9 +149,49 @@ export default function Home() {
             <ul className="space-y-3">
               {myTasks.map((task) => {
                 // DB仕様上、due_atは必ず値が入る(start_at + estimated_timeで自動計算)
-                const dueDate = new Date(task.due_at!);
+                const dueDate = new Date(task.due_at ?? 0);
                 const todayStart = getTodayStart();
                 const isOverdue = dueDate < todayStart && !task.is_completed;
+
+                // 時刻フォーマット
+                const formatTime = (date: Date) =>
+                  date.toLocaleTimeString("ja-JP", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                const formatDateTime = (date: Date) =>
+                  date.toLocaleString("ja-JP", {
+                    month: "numeric",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+
+                let TimeIcon = FiClock;
+                let timeText = "";
+                let badgeStyle = "";
+
+                if (isOverdue) {
+                  TimeIcon = FiAlertCircle;
+                  timeText = formatDateTime(dueDate);
+                  // 親が赤背景なので、白背景・赤文字にする
+                  badgeStyle = "bg-white text-[#FF6B6B] border-white";
+                } else if (task.start_at) {
+                  TimeIcon = FiPlayCircle;
+                  timeText = formatTime(new Date(task.start_at));
+                  // 親が白背景。開始時間を目立たせる（青系など）
+                  badgeStyle = "bg-[#E0F7FA] text-[#006064] border-[#006064]";
+                } else {
+                  TimeIcon = FiClock;
+                  timeText = formatTime(dueDate);
+                  // 親が白背景。期限を目立たせる（オレンジ系など）
+                  badgeStyle = "bg-[#FFF3E0] text-[#E65100] border-[#E65100]";
+                }
+
+                // 完了済みの場合のスタイル上書き（グレーアウト）
+                if (task.is_completed) {
+                  badgeStyle = "bg-gray-200 text-gray-500 border-gray-400";
+                }
 
                 return (
                   <li
@@ -142,9 +205,35 @@ export default function Home() {
                     }`}
                   >
                     <div className="flex items-center gap-3 overflow-hidden">
-                      <span className="text-xl">
-                        {task.is_completed ? "✅" : isOverdue ? "🔥" : "⬜"}
-                      </span>
+                      <label className="inline-flex items-center cursor-pointer flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={task.is_completed ?? false}
+                          onChange={() =>
+                            handleToggle(task.id, task.is_completed ?? false)
+                          }
+                          className="sr-only peer"
+                          aria-label={task.title || "タスク"}
+                        />
+                        <span
+                          className="w-6 h-6 flex items-center justify-center border-2 border-black rounded-md bg-white peer-checked:bg-[#4ECDC4] transition-colors duration-200
+                          peer-focus:ring-2 peer-focus:ring-offset-2 peer-focus:ring-[#4ECDC4]"
+                        >
+                          {/* Checkmark */}
+                          <svg
+                            className={`w-4 h-4 text-white ${task.is_completed ? "opacity-100" : "opacity-0"}`}
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <title>Checkmark icon</title>
+                            <polyline points="5 11 9 15 15 7" />
+                          </svg>
+                        </span>
+                      </label>
                       <span
                         className={`font-bold truncate ${
                           task.is_completed ? "line-through text-gray-500" : ""
@@ -153,15 +242,12 @@ export default function Home() {
                         {task.title}
                       </span>
                     </div>
-                    <span
-                      className={`text-xs font-mono border-2 border-black px-2 py-1 rounded-md font-bold whitespace-nowrap ml-2 ${
-                        isOverdue
-                          ? "bg-white text-black"
-                          : "bg-black text-white"
-                      }`}
+                    <div
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md border-2 text-xs font-bold whitespace-nowrap ml-2 ${badgeStyle}`}
                     >
-                      {dueDate.toLocaleDateString()}
-                    </span>
+                      <TimeIcon size={14} />
+                      <span className="font-mono">{timeText}</span>
+                    </div>
                   </li>
                 );
               })}

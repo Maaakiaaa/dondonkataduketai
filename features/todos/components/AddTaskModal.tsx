@@ -67,7 +67,12 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
       <div className="bg-white rounded-[2rem] w-full max-w-md p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] border-4 border-black overflow-y-auto max-h-[90vh] relative [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {/* 装飾的な背景要素 */}
         <div className="absolute top-0 left-0 w-full h-4 bg-[#FFD700] border-b-4 border-black" />
@@ -129,6 +134,10 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
               value={estimated}
               onChange={(e) => setEstimated(Number(e.target.value))}
               className="flex-1 h-4 bg-gray-200 rounded-full appearance-none border-2 border-black [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-[#FF9F1C] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-black [&::-webkit-slider-thumb]:cursor-pointer"
+              aria-valuemin={5}
+              aria-valuemax={180}
+              aria-valuenow={estimated}
+              aria-valuetext={`${estimated}分`}
             />
             <span className="text-xl font-black w-20 text-right">
               {estimated}分
@@ -151,6 +160,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
                   ? "bg-[#FF6B6B] text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                   : "text-gray-400 hover:bg-gray-100"
               }`}
+              aria-pressed={dateMode === "start"}
             >
               開始日時
             </button>
@@ -162,6 +172,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
                   ? "bg-[#4ECDC4] text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                   : "text-gray-400 hover:bg-gray-100"
               }`}
+              aria-pressed={dateMode === "due"}
             >
               期限日時
             </button>
