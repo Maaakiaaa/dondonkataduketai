@@ -255,13 +255,13 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
 
         {/* 繰り返し設定 */}
         <div className="mb-8">
-          <label
-            htmlFor={recurrenceId}
+          <span
+            id={recurrenceId}
             className="text-sm font-black block mb-2 flex items-center gap-2"
           >
             <span className="w-3 h-3 bg-[#A8DADC] rounded-full border border-black"></span>
             繰り返し設定
-          </label>
+          </span>
           <div className="bg-[#F0F4F8] p-4 rounded-xl border-2 border-black">
             <div className="grid grid-cols-2 gap-2">
               <button

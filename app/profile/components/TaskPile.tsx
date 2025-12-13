@@ -90,8 +90,8 @@ export default function TaskPile({ tasks }: TaskPileProps) {
       const y = -Math.random() * 500 - 50; // Start above the screen
 
       // Determine color based on estimatedTime (richness)
-      let color = "#4ECDC4"; // Blue/Cyan (Short)
       const time = task.estimatedTime || 0;
+      let color: string;
 
       if (time >= 60) {
         color = "#FF4444"; // Red (Long)

@@ -30,6 +30,10 @@ import {
 } from "@/features/todos/api";
 import Frame from "../components/Frame";
 
+// スケジュールの時間範囲設定
+const SCHEDULE_START_HOUR = 0; // スケジュール開始時刻（時）
+const SCHEDULE_END_HOUR = 24; // スケジュール終了時刻（時）
+
 // 空き時間スロットの型定義
 type GapSlot = {
   id: string;
@@ -480,12 +484,12 @@ export default function TodoPage() {
     (a, b) => new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime(),
   );
 
-  // 空き時間スロットを計算（8時〜22時の範囲）
+  // 空き時間スロットを計算
   const calculateGapSlots = (): GapSlot[] => {
     const dayStart = new Date(selectedDate);
-    dayStart.setHours(8, 0, 0, 0);
+    dayStart.setHours(SCHEDULE_START_HOUR, 0, 0, 0);
     const dayEnd = new Date(selectedDate);
-    dayEnd.setHours(22, 0, 0, 0);
+    dayEnd.setHours(SCHEDULE_END_HOUR, 0, 0, 0);
 
     const gaps: GapSlot[] = [];
     let currentTime = dayStart;
@@ -685,6 +689,9 @@ export default function TodoPage() {
 
     if (!todo || !gap) return;
 
+    // 元のstart_atを保存（ロールバック用）
+    const originalStartAt = todo.start_at;
+
     // ドロップ位置から時刻を計算（5分刻み）
     const overRect = over.rect;
     const activeRect = active.rect.current.translated;
@@ -707,9 +714,11 @@ export default function TodoPage() {
     try {
       await updateTodo(todo.id, { start_at: newStartAtISO });
     } catch (e) {
-      // エラー時はロールバック
+      // エラー時は元の値にロールバック
       setTodos((prev) =>
-        prev.map((t) => (t.id === todo.id ? { ...t, start_at: null } : t)),
+        prev.map((t) =>
+          t.id === todo.id ? { ...t, start_at: originalStartAt } : t,
+        ),
       );
       alert("スケジュール配置に失敗しました");
     }
@@ -915,7 +924,9 @@ export default function TodoPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleToggle(todo.id, false)}
+                            onClick={() =>
+                              handleToggle(todo.id, todo.is_completed)
+                            }
                             className="w-7 h-7 rounded-full bg-white border-2 border-gray-600 hover:bg-[#4ECDC4] flex items-center justify-center transition-colors group"
                           >
                             <svg
@@ -1076,7 +1087,7 @@ export default function TodoPage() {
             />
           )}
         </DragOverlay>
-      </DndContext>{" "}
+      </DndContext>
     </Frame>
   );
 }

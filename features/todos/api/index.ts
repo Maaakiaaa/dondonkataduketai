@@ -22,9 +22,16 @@ const calculateNextDate = (
     case "weekly":
       date.setDate(date.getDate() + 7);
       break;
-    case "monthly":
+    case "monthly": {
+      // 月末のエッジケースを処理（例: 1/31 → 2/28 or 2/29）
+      const originalDay = date.getDate();
       date.setMonth(date.getMonth() + 1);
+      // 月がオーバーフローした場合（例: 1/31 + 1ヶ月 → 3/3）、前月の最終日に調整
+      if (date.getDate() !== originalDay) {
+        date.setDate(0); // 前月の最終日に設定
+      }
       break;
+    }
   }
   return date.toISOString();
 };
@@ -125,7 +132,9 @@ export const toggleTodoCompletion = async (
         // 重複がある場合は作成したタスクを削除
         if (existingTasks && existingTasks.length > 0) {
           await supabase.from("todos").delete().eq("id", newTask.id);
-          console.log("次のタスクは既に作られているのでスキップしました");
+          console.warn(
+            `[繰り返しタスク] 重複検出のためスキップ: タイトル="${updatedTodo.title}", 予定日=${newTask.due_at}`,
+          );
         }
       }
     }
@@ -161,21 +170,25 @@ export const getOverlappingTodos = async (
   const newEndAt = new Date(startAt.getTime() + estimatedMinutes * 60000);
 
   // start_atが設定されている未完了タスクを取得
-  const { data, error } = await supabase
+  let query = supabase
     .from("todos")
     .select("*")
     .eq("user_id", userId)
     .eq("is_completed", false)
     .not("start_at", "is", null);
 
+  // excludeIdがある場合はDBクエリで除外（効率化）
+  if (excludeId) {
+    query = query.neq("id", excludeId);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   if (!data) return [];
 
   // クライアントサイドで時間帯の重複を判定
   const overlapping = data.filter((todo) => {
-    // 自分自身は除外（編集時）
-    if (excludeId && todo.id === excludeId) return false;
-    // start_atがnullの場合はスキップ（クエリで除外済みだが念のため）
+    // start_atがnullの場合はスキップ（クエリで除外済みだが型安全のため）
     if (!todo.start_at) return false;
 
     const existingStart = new Date(todo.start_at);

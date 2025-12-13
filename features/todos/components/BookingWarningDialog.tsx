@@ -42,7 +42,7 @@ export const BookingWarningDialog = ({
       aria-describedby={descriptionId}
     >
       <div className="bg-white rounded-[2rem] w-full max-w-sm p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] border-4 border-black relative overflow-hidden">
-        {/* 警告の黄色ヘッダー */}
+        {/* 警告の赤ヘッダー */}
         <div className="absolute top-0 left-0 w-full h-4 bg-[#FF6B6B] border-b-4 border-black" />
 
         {/* 警告アイコン */}
