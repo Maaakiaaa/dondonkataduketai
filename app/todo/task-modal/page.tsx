@@ -32,7 +32,7 @@ function TaskModalContent() {
 
   // モーダルを閉じる関数（AddTaskModalのonCloseに渡す）
   const closeModal = () => {
-    // 遷移中に裏の画面が見えないように、モーダルは開いたままにする
+    // モーダルを閉じるために /todo に遷移する
     router.replace("/todo");
   };
 

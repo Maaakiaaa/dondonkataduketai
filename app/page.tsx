@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "@/features/auth/api";
 import { getAchievementRate, getFriends } from "@/features/friendship/api";
@@ -11,6 +12,18 @@ type FriendStatus = {
   username: string;
   avatar_url: string | null;
   rate: number;
+};
+
+// ヘルパー関数: 今日の開始時刻を取得
+const getTodayStart = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
+// ヘルパー関数: 明日の開始時刻を取得
+const getTodayEnd = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 };
 
 export default function Home() {
@@ -29,24 +42,15 @@ export default function Home() {
 
         // 1. 自分のタスク取得 & フィルタリング
         const allTodos = await getTodos();
-        const now = new Date();
         // 今日の0時0分0秒
-        const todayStart = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-        );
+        const todayStart = getTodayStart();
         // 明日の0時0分0秒
-        const todayEnd = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate() + 1,
-        );
+        const todayEnd = getTodayEnd();
 
         const filteredTodos = allTodos.filter((todo) => {
           // 自分のタスクのみ
-          if (todo.user_id !== user.id) return false;
-          // 期限がないものは除外（要件によるが、今回は「今日のタスク」なので期限必須と仮定）
+          if (!todo.user_id || todo.user_id !== user.id) return false;
+          // DB仕様上、due_atは必ず値が入るが、念のためチェック
           if (!todo.due_at) return false;
 
           const dueDate = new Date(todo.due_at);
@@ -63,7 +67,10 @@ export default function Home() {
         // ソート: 未完了が先、その中で期限が古い順
         filteredTodos.sort((a, b) => {
           if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1;
-          return new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime();
+          return (
+            new Date(a.due_at || 0).getTime() -
+            new Date(b.due_at || 0).getTime()
+          );
         });
 
         setMyTasks(filteredTodos);
@@ -118,13 +125,9 @@ export default function Home() {
           ) : (
             <ul className="space-y-3">
               {myTasks.map((task) => {
+                // DB仕様上、due_atは必ず値が入る(start_at + estimated_timeで自動計算)
                 const dueDate = new Date(task.due_at!);
-                const now = new Date();
-                const todayStart = new Date(
-                  now.getFullYear(),
-                  now.getMonth(),
-                  now.getDate(),
-                );
+                const todayStart = getTodayStart();
                 const isOverdue = dueDate < todayStart && !task.is_completed;
 
                 return (
@@ -197,9 +200,11 @@ export default function Home() {
                   )}
                   <div className="w-10 h-10 rounded-full bg-gray-200 border-2 border-black overflow-hidden flex-shrink-0">
                     {friend.avatar_url ? (
-                      <img
+                      <Image
                         src={friend.avatar_url}
                         alt={friend.username}
+                        width={40}
+                        height={40}
                         className="w-full h-full object-cover"
                       />
                     ) : (

@@ -105,7 +105,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="例：部屋の掃除"
+            placeholder="例: 部屋の掃除"
             className="w-full text-xl font-bold border-2 border-black rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#FFD700] focus:border-black transition-all placeholder-gray-300"
           />
         </div>

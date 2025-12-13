@@ -100,6 +100,7 @@ export default function TodoPage() {
   const formatDuration = (minutes: number) => {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
+    if (h === 0 && m === 0) return "0分";
     return `${h > 0 ? `${h}時間` : ""}${m > 0 ? `${m}分` : ""}`;
   };
 
@@ -175,7 +176,7 @@ export default function TodoPage() {
                       onChange={() =>
                         handleToggle(todo.id, todo.is_completed ?? false)
                       }
-                      className="w-6 h-6 cursor-pointer appearance-none border-2 border-black rounded-md checked:bg-[#4ECDC4] checked:after:content-['✓'] checked:after:text-white checked:after:flex checked:after:justify-center checked:after:items-center checked:after:text-sm checked:after:font-bold transition-colors"
+                      className="w-6 h-6 cursor-pointer appearance-none border-2 border-black rounded-md checked:bg-[#4ECDC4] checked:after:content-['✓'] checked:after:text-white checked:after:flex checked:after:justify-center checked:after:items-center checked:after:text-sm checked:after:font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4ECDC4]"
                     />
                   </div>
 
