@@ -1,25 +1,23 @@
-import Link from "next/link";
+import Frame from "./components/Frame";
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-col items-center gap-8 p-8">
-        <h1 className="text-5xl font-bold text-black dark:text-white">
-          Welcome to DonDonKataduketai
-        </h1>
-        <p className="max-w-md text-center text-lg text-zinc-600 dark:text-zinc-400">
-          This is the home page. Navigate to different features using the links
-          below.
+    <Frame active="home">
+      <div className="flex flex-col items-center gap-4">
+        <h2 className="text-lg font-semibold">達成率</h2>
+        <p className="text-sm text-zinc-600">
+          片付けを楽しくするシンプルなTODOアプリのモックです。
         </p>
-        <div className="flex gap-4">
-          <Link
-            href="/play"
-            className="flex h-12 items-center justify-center gap-2 rounded-full bg-green-500 px-8 text-white transition-colors hover:bg-green-600"
-          >
-            Go to Play (Playlist Generator)
-          </Link>
+
+        <div className="mt-4 w-full rounded-md border border-zinc-200 p-3">
+          <h3 className="text-sm font-medium">今日のおすすめ</h3>
+          <ul className="mt-2 text-sm text-zinc-700 list-disc list-inside">
+            <li>デスク周りを5分で片付ける</li>
+            <li>本棚の不要な本を3冊選ぶ</li>
+            <li>音楽を流しながら作業する</li>
+          </ul>
         </div>
-      </main>
-    </div>
+      </div>
+    </Frame>
   );
 }
