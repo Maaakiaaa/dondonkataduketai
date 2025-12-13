@@ -207,23 +207,56 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
             <span className="w-3 h-3 bg-[#A8DADC] rounded-full border border-black"></span>
             繰り返し設定
           </label>
-          <div className="relative">
-            <select
-              id={recurrenceId}
-              value={recurrence ?? ""}
-              onChange={(e) =>
-                setRecurrence((e.target.value as RecurrenceType) || null)
-              }
-              className="w-full p-3 bg-white border-2 border-black rounded-xl font-bold text-gray-700 appearance-none cursor-pointer hover:bg-gray-50 transition-all focus:outline-none focus:ring-2 focus:ring-[#FFD700]"
-            >
-              <option value="">繰り返しなし</option>
-              <option value="daily">毎日 🔄</option>
-              <option value="weekly">毎週 📅</option>
-              <option value="monthly">毎月 🗓️</option>
-            </select>
-            {/* 矢印アイコン（装飾） */}
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none font-black">
-              ▼
+          <div className="bg-[#F0F4F8] p-4 rounded-xl border-2 border-black">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setRecurrence(null)}
+                className={`py-3 px-4 rounded-lg font-black text-sm transition-all ${
+                  recurrence === null
+                    ? "bg-white text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                    : "bg-white/50 text-gray-500 border-2 border-gray-300 hover:bg-white/80"
+                }`}
+                aria-pressed={recurrence === null}
+              >
+                なし
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecurrence("daily")}
+                className={`py-3 px-4 rounded-lg font-black text-sm transition-all ${
+                  recurrence === "daily"
+                    ? "bg-[#FF6B6B] text-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                    : "bg-white/50 text-gray-500 border-2 border-gray-300 hover:bg-white/80"
+                }`}
+                aria-pressed={recurrence === "daily"}
+              >
+                毎日 🔄
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecurrence("weekly")}
+                className={`py-3 px-4 rounded-lg font-black text-sm transition-all ${
+                  recurrence === "weekly"
+                    ? "bg-[#4ECDC4] text-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                    : "bg-white/50 text-gray-500 border-2 border-gray-300 hover:bg-white/80"
+                }`}
+                aria-pressed={recurrence === "weekly"}
+              >
+                毎週 📅
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecurrence("monthly")}
+                className={`py-3 px-4 rounded-lg font-black text-sm transition-all ${
+                  recurrence === "monthly"
+                    ? "bg-[#FFE66D] text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                    : "bg-white/50 text-gray-500 border-2 border-gray-300 hover:bg-white/80"
+                }`}
+                aria-pressed={recurrence === "monthly"}
+              >
+                毎月 🗓️
+              </button>
             </div>
           </div>
           {recurrence && (

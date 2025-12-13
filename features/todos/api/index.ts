@@ -130,3 +130,19 @@ export const toggleTodoCompletion = async (
 
   return updatedTodo as Todo;
 };
+
+// タスクを更新する（汎用）
+export const updateTodo = async (
+  id: string,
+  updates: Partial<Omit<Todo, "id" | "user_id" | "created_at">>,
+) => {
+  const { data, error } = await supabase
+    .from("todos")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as Todo;
+};
