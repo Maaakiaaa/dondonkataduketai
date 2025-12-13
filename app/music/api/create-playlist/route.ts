@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       playlistId: playlist.body.id,
       playlistUrl: playlist.body.external_urls.spotify,
+      playlistUri: playlist.body.uri,
       playlistName: playlist.body.name,
     });
   } catch (error: unknown) {
