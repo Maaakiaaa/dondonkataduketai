@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
 import {
@@ -89,8 +90,6 @@ export default function FriendsPage() {
 
   return (
     <main className="max-w-md mx-auto p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl font-bold mb-4">フレンド実験場</h1>
-
       {/* 自分のID表示（コピー用） */}
       <div className="bg-white p-4 rounded shadow mb-6">
         <p className="text-sm text-gray-500">
@@ -167,7 +166,12 @@ export default function FriendsPage() {
               <div className="w-8 h-8 bg-gray-200 rounded-full overflow-hidden">
                 {/* アイコンがあれば表示、なければグレー */}
                 {f.profile.avatar_url ? (
-                  <img src={f.profile.avatar_url} alt="" />
+                  <Image
+                    src={f.profile.avatar_url}
+                    alt=""
+                    width={32}
+                    height={32}
+                  />
                 ) : (
                   <div className="w-full h-full bg-gray-300" />
                 )}
