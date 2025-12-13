@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import Frame from "@/app/components/Frame";
 import { supabase } from "@/app/lib/supabase";
@@ -14,8 +15,18 @@ import {
 export default function FriendsPage() {
   const [myId, setMyId] = useState("");
   const [targetId, setTargetId] = useState("");
-  const [friends, setFriends] = useState<any[]>([]);
-  const [requests, setRequests] = useState<any[]>([]);
+  const [friends, setFriends] = useState<
+    Array<{
+      friendshipId: string;
+      profile: { id: string; username: string; avatar_url: string | null };
+    }>
+  >([]);
+  const [requests, setRequests] = useState<
+    Array<{
+      id: string;
+      sender: { id: string; username: string; avatar_url: string | null };
+    }>
+  >([]);
   const [loading, setLoading] = useState(false);
   const [achievementRates, setAchievementRates] = useState<
     Record<string, number>
@@ -63,11 +74,38 @@ export default function FriendsPage() {
   // 2. フレンド申請を送る
   const handleRequest = async () => {
     if (!targetId) return alert("相手のIDを入れて！");
-    if (targetId === myId) return alert("自分とは友達になれません（悲しいね）");
+    if (targetId.length !== 8) return alert("8文字のIDを入力してください");
+    if (targetId === myId.slice(0, 8))
+      return alert("自分とは友達になれません（悲しいね）");
 
     setLoading(true);
     try {
-      await requestFriend(myId, targetId);
+      const { data: profiles } = await supabase.from("profiles").select("id");
+
+      const foundProfile = profiles?.find((p) =>
+        p.id.toLowerCase().startsWith(targetId.toLowerCase()),
+      );
+
+      if (!foundProfile) {
+        const { data: todos } = await supabase.from("todos").select("user_id");
+        const foundTodo = todos?.find((t) =>
+          t.user_id?.toLowerCase().startsWith(targetId.toLowerCase()),
+        );
+
+        if (foundTodo?.user_id) {
+          await requestFriend(myId, foundTodo.user_id);
+          alert("申請しました！相手の画面で確認してね");
+          setTargetId("");
+          return;
+        }
+
+        alert(
+          `ユーザーが見つかりませんでした。\n\n入力したID: ${targetId}\n\n※相手がまだ登録していない、またはタスクを作成していない場合は検索できません。`,
+        );
+        return;
+      }
+
+      await requestFriend(myId, foundProfile.id);
       alert("申請しました！相手の画面で確認してね");
       setTargetId("");
     } catch (e) {
@@ -77,13 +115,13 @@ export default function FriendsPage() {
     }
   };
 
-  // 3. 申請を承認する
+  // 4. 申請を承認する
   const handleAccept = async (friendshipId: string) => {
     try {
       await acceptFriendRequest(friendshipId);
       alert("友達になりました！");
-      fetchData(myId); // リスト更新
-    } catch (e) {
+      fetchData(myId);
+    } catch {
       alert("承認失敗");
     }
   };
@@ -95,23 +133,23 @@ export default function FriendsPage() {
         <div className="bg-[#FFE66D] p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden">
           <div className="absolute -right-4 -top-4 w-16 h-16 bg-white rounded-full border-4 border-black opacity-20" />
           <p className="font-black text-sm mb-2 flex items-center gap-2">
-            <span className="text-xl">🆔</span> あなたのID
+            <span className="text-xl">🆔</span> あなたのID（最初の8文字）
           </p>
           <button
             type="button"
-            className="bg-white p-3 rounded-lg border-2 border-black font-mono text-xs break-all select-all cursor-pointer hover:bg-gray-50 transition-colors text-left w-full"
+            className="bg-white p-3 rounded-lg border-2 border-black font-mono text-base break-all select-all cursor-pointer hover:bg-gray-50 transition-colors text-left w-full"
             onClick={() => {
-              navigator.clipboard.writeText(myId);
+              navigator.clipboard.writeText(myId.slice(0, 8));
               alert("コピーしました！");
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
-                navigator.clipboard.writeText(myId);
+                navigator.clipboard.writeText(myId.slice(0, 8));
                 alert("コピーしました！");
               }
             }}
           >
-            {myId}
+            {myId.slice(0, 8)}
           </button>
           <p className="text-xs text-right mt-2 font-bold opacity-70">
             ※タップしてコピーしてね
@@ -127,14 +165,15 @@ export default function FriendsPage() {
             <input
               type="text"
               className="w-full border-2 border-black p-3 rounded-lg focus:outline-none focus:ring-4 focus:ring-[#4ECDC4]/30 font-bold transition-all"
-              placeholder="相手のIDをここに貼り付け"
+              placeholder="相手のID（8文字）をここに貼り付け"
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
+              maxLength={8}
             />
             <button
               type="button"
               onClick={handleRequest}
-              disabled={loading}
+              disabled={loading || targetId.length !== 8}
               className="w-full bg-[#4ECDC4] text-white font-black py-3 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3dbdb4]"
             >
               {loading ? "送信中..." : "申請を送る！"}
@@ -193,9 +232,11 @@ export default function FriendsPage() {
                 >
                   <div className="w-14 h-14 rounded-full border-2 border-black overflow-hidden bg-gray-100 shrink-0 shadow-sm">
                     {f.profile.avatar_url ? (
-                      <img
+                      <Image
                         src={f.profile.avatar_url}
-                        alt=""
+                        alt={f.profile.username}
+                        width={56}
+                        height={56}
                         className="w-full h-full object-cover"
                       />
                     ) : (

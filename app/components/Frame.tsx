@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 type Props = {
   children: React.ReactNode;
@@ -11,6 +12,51 @@ type Props = {
 
 export default function Frame({ children, active = "home" }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
+  const [username, setUsername] = useState<string>("名前");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const loadAvatar = () => {
+      try {
+        const v = localStorage.getItem("profileAvatar");
+        if (v) setAvatarSrc(v);
+      } catch {
+        // ignore
+      }
+    };
+
+    const loadUsername = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user?.user_metadata?.username) {
+          setUsername(user.user_metadata.username);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    // 初回ロード
+    loadAvatar();
+    loadUsername();
+
+    // storage イベントで他のタブの変更を検知
+    window.addEventListener("storage", loadAvatar);
+
+    // カスタムイベントで同じタブ内の変更を検知
+    window.addEventListener("avatarUpdated", loadAvatar);
+    window.addEventListener("usernameUpdated", loadUsername);
+
+    return () => {
+      window.removeEventListener("storage", loadAvatar);
+      window.removeEventListener("avatarUpdated", loadAvatar);
+      window.removeEventListener("usernameUpdated", loadUsername);
+    };
+  }, []);
 
   const tabClass = (name: string) =>
     `flex-1 h-full flex items-center justify-center transition-colors duration-200 ${
@@ -34,8 +80,23 @@ export default function Frame({ children, active = "home" }: Props) {
             />
           </div>
           <Link href="/profile" aria-label="プロフィール設定へ">
-            <div className="w-10 h-10 rounded-full bg-[#4ECDC4] border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center text-white font-black transform hover:translate-y-0.5 hover:shadow-none transition-all">
-              ぎ
+            <div
+              className={`w-10 h-10 rounded-full border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center font-black transform hover:translate-y-0.5 hover:shadow-none transition-all overflow-hidden ${
+                avatarSrc ? "bg-white" : "bg-[#4ECDC4] text-white"
+              }`}
+            >
+              {avatarSrc ? (
+                <Image
+                  src={avatarSrc}
+                  alt="アイコン"
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{username[0] ?? "?"}</span>
+              )}
             </div>
           </Link>
         </header>

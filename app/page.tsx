@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FiAlertCircle, FiClock, FiPlayCircle } from "react-icons/fi";
 import { getCurrentUser } from "@/features/auth/api";
@@ -275,48 +276,50 @@ export default function Home() {
           ) : (
             <ul className="space-y-4">
               {friendStatuses.map((friend, index) => (
-                <li
-                  key={friend.id}
-                  className="flex items-center gap-3 p-3 border-4 border-black rounded-xl bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] relative"
-                >
-                  {index === 0 && (
-                    <span className="absolute -top-3 -left-2 text-3xl transform -rotate-12 drop-shadow-md">
-                      👑
-                    </span>
-                  )}
-                  <div className="w-10 h-10 rounded-full bg-gray-200 border-2 border-black overflow-hidden flex-shrink-0">
-                    {friend.avatar_url ? (
-                      <Image
-                        src={friend.avatar_url}
-                        alt={friend.username}
-                        width={40}
-                        height={40}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-sm font-bold bg-[#FFD700]">
-                        {friend.username.slice(0, 1)}
-                      </div>
+                <li key={friend.id} className="relative">
+                  <Link
+                    href={`/profile/friends/${friend.id}`}
+                    className="flex items-center gap-3 p-3 border-4 border-black rounded-xl bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all block"
+                  >
+                    {index === 0 && (
+                      <span className="absolute -top-3 -left-2 text-3xl transform -rotate-12 drop-shadow-md">
+                        👑
+                      </span>
                     )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-end mb-1">
-                      <span className="font-bold text-sm truncate mr-2">
-                        {friend.username}
-                      </span>
-                      <span className="font-black text-lg font-mono">
-                        {friend.rate}%
-                      </span>
+                    <div className="w-10 h-10 rounded-full bg-gray-200 border-2 border-black overflow-hidden flex-shrink-0">
+                      {friend.avatar_url ? (
+                        <Image
+                          src={friend.avatar_url}
+                          alt={friend.username}
+                          width={40}
+                          height={40}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-sm font-bold bg-[#FFD700]">
+                          {friend.username.slice(0, 1)}
+                        </div>
+                      )}
                     </div>
-                    <div className="w-full h-4 bg-gray-100 rounded-full border-2 border-black overflow-hidden relative">
-                      <div
-                        className="h-full bg-[#4ECDC4] border-r-2 border-black transition-all duration-500 ease-out"
-                        style={{ width: `${friend.rate}%` }}
-                      />
-                      {/* ストライプ模様のオーバーレイ */}
-                      <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.5)_25%,rgba(255,255,255,0.5)_50%,transparent_50%,transparent_75%,rgba(255,255,255,0.5)_75%,rgba(255,255,255,0.5)_100%)] bg-[length:10px_10px] opacity-30" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-end mb-1">
+                        <span className="font-bold text-sm truncate mr-2">
+                          {friend.username}
+                        </span>
+                        <span className="font-black text-lg font-mono">
+                          {friend.rate}%
+                        </span>
+                      </div>
+                      <div className="w-full h-4 bg-gray-100 rounded-full border-2 border-black overflow-hidden relative">
+                        <div
+                          className="h-full bg-[#4ECDC4] border-r-2 border-black transition-all duration-500 ease-out"
+                          style={{ width: `${friend.rate}%` }}
+                        />
+                        {/* ストライプ模様のオーバーレイ */}
+                        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.5)_25%,rgba(255,255,255,0.5)_50%,transparent_50%,transparent_75%,rgba(255,255,255,0.5)_75%,rgba(255,255,255,0.5)_100%)] bg-[length:10px_10px] opacity-30" />
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 </li>
               ))}
             </ul>
