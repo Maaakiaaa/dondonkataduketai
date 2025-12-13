@@ -7,7 +7,11 @@ import { addTodo } from "@/features/todos/api";
 export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
   // 入力ステート
   const [title, setTitle] = useState("");
-  const [duration, setDuration] = useState(45);
+  const [estimated, setEstimated] = useState(45);
+
+  // ユニークID生成
+  const taskTitleId = useId();
+  const estimatedId = useId();
 
   // 日時モード
   const [dateMode, setDateMode] = useState<"start" | "due">("start");
@@ -32,11 +36,11 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
       return;
     }
     const start = new Date(selectedDate);
-    const end = new Date(start.getTime() + duration * 60000);
+    const end = new Date(start.getTime() + estimated * 60000);
     setEndTimeDisplay(
       end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     );
-  }, [selectedDate, duration, dateMode]);
+  }, [selectedDate, estimated, dateMode]);
 
   const handleSave = async () => {
     if (!title) return alert("タスク名を入れてください");
@@ -50,7 +54,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
       await addTodo(
         title,
         user.id,
-        duration,
+        estimated,
         dateMode === "start" ? new Date(selectedDate).toISOString() : undefined,
         dateMode === "due" ? new Date(selectedDate).toISOString() : undefined,
       );
@@ -83,16 +87,16 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
             保存する
           </button>
         </div>
-
         {/* タスク名 */}
         <div className="mb-6">
           <label
-            htmlFor=""
+            htmlFor={taskTitleId}
             className="text-xs text-gray-400 font-bold block mb-1"
           >
             タスク名
           </label>
           <input
+            id={taskTitleId}
             type="text"
             className="w-full text-xl font-bold placeholder-gray-300 outline-none border-b border-transparent focus:border-blue-500 transition"
             placeholder="例: プレゼン資料作成"
@@ -104,7 +108,10 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
         {/* 所要時間スライダー */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-2">
-            <label htmlFor="" className="text-xs text-gray-400 font-bold">
+            <label
+              htmlFor={estimatedId}
+              className="text-xs text-gray-400 font-bold"
+            >
               ⏳ 所要時間 (見積もり)
             </label>
             <span className="text-xs text-gray-300">平均的な作業時間</span>
@@ -113,7 +120,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
           <div className="bg-white border rounded-xl p-4 shadow-sm">
             <div className="text-center mb-4">
               <span className="text-4xl font-bold text-blue-600">
-                {duration}
+                {estimated}
               </span>
               <span className="text-sm text-gray-400 ml-1">分</span>
             </div>
@@ -123,8 +130,8 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
               min="15"
               max="180"
               step="15"
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
+              value={estimated}
+              onChange={(e) => setEstimated(Number(e.target.value))}
               className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
 
@@ -133,7 +140,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
                 <button
                   type="button"
                   key={mins}
-                  onClick={() => setDuration(mins)}
+                  onClick={() => setEstimated(mins)}
                   className="flex-1 py-1 rounded-md text-xs font-bold bg-gray-50 text-gray-600 hover:bg-gray-100 border"
                 >
                   {mins >= 60 ? `${mins / 60}時間` : `${mins}分`}
