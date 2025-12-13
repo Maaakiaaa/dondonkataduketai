@@ -90,15 +90,15 @@ export default function TaskPile({ tasks }: TaskPileProps) {
       const y = -Math.random() * 500 - 50; // Start above the screen
 
       // Determine color based on estimatedTime (richness)
-      let color = "#FFE66D"; // Yellow (Short)
       const time = task.estimatedTime || 0;
+      let color: string;
 
       if (time >= 60) {
-        color = "#FFF600"; // Yellow (Long)
+        color = "#FF4444"; // Red (Long)
       } else if (time >= 30) {
-        color = "#FF2A96"; // Pink (Medium)
+        color = "#FFF600"; // Yellow (Medium)
       } else {
-        color = "#26F0F1"; // Cyan (Short)
+        color = "#4ECDC4"; // Blue/Cyan (Short)
       }
 
       // Calculate size based on estimatedTime (proportional)
@@ -121,6 +121,8 @@ export default function TaskPile({ tasks }: TaskPileProps) {
 
     // Add mouse control
     const mouse = Mouse.create(render.canvas);
+    mouse.pixelRatio = window.devicePixelRatio;
+
     const mouseConstraint = MouseConstraint.create(engine, {
       mouse: mouse,
       constraint: {
