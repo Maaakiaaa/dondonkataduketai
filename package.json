@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
+    "dev:https": "start cmd /c \"next dev -H 0.0.0.0 -p 13001\" && npx local-ssl-proxy --key ./localhost-key.pem --cert ./localhost.pem --source 3001 --target 13001",
     "build": "next build",
     "start": "next start",
     "lint": "biome check",
@@ -39,6 +40,7 @@
     "@types/spotify-web-api-node": "^5.0.11",
     "babel-plugin-react-compiler": "1.0.0",
     "lefthook": "^2.0.7",
+    "local-ssl-proxy": "^2.0.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
