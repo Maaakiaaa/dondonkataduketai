@@ -3,6 +3,7 @@
 import {
   DndContext,
   type DragEndEvent,
+  type DragMoveEvent,
   DragOverlay,
   type DragStartEvent,
   PointerSensor,
@@ -37,6 +38,17 @@ type GapSlot = {
   durationMinutes: number;
 };
 
+// 所要時間に応じた色を返すヘルパー関数
+function getTimeColor(estimatedTime: number | null): string {
+  const time = estimatedTime || 0;
+  if (time >= 60) {
+    return "#FF4444"; // Red (Long)
+  } else if (time >= 30) {
+    return "#FFF600"; // Yellow (Medium)
+  }
+  return "#4ECDC4"; // Blue/Cyan (Short)
+}
+
 // ドラッグ可能な未配置タスクコンポーネント
 function DraggableTask({
   todo,
@@ -54,106 +66,118 @@ function DraggableTask({
     data: { todo },
   });
 
+  // 所要時間に応じたカラーバーの色
+  const barColor = getTimeColor(todo.estimated_time);
+
   return (
     <div
       ref={setNodeRef}
-      className={`relative border-2 border-black rounded-xl p-3 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all ${
+      className={`relative border-2 border-black rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all overflow-hidden ${
         isDragging ? "opacity-30 border-dashed" : "hover:-translate-y-0.5"
       } ${isUrgent ? "bg-[#FF6B6B] text-white" : "bg-white text-black"}`}
     >
-      <div className="flex items-start gap-3">
-        {/* ドラッグハンドル */}
+      {/* 左側のカラーバー */}
+      {!isUrgent && (
         <div
-          {...attributes}
-          {...listeners}
-          className={`flex-shrink-0 cursor-grab active:cursor-grabbing p-1 rounded ${
-            isUrgent ? "hover:bg-white/20" : "hover:bg-gray-100"
-          }`}
-        >
-          <svg
-            className={`w-4 h-4 ${isUrgent ? "text-white/70" : "text-gray-400"}`}
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <title>ドラッグして移動</title>
-            <circle cx="9" cy="6" r="1.5" />
-            <circle cx="15" cy="6" r="1.5" />
-            <circle cx="9" cy="12" r="1.5" />
-            <circle cx="15" cy="12" r="1.5" />
-            <circle cx="9" cy="18" r="1.5" />
-            <circle cx="15" cy="18" r="1.5" />
-          </svg>
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <h3 className="font-black text-base leading-tight mb-1">
-            {todo.title}
-          </h3>
-          <div className="flex gap-2 text-[10px] font-bold flex-wrap">
-            {todo.due_at && (
-              <span
-                className={`px-2 py-0.5 rounded border ${
-                  isUrgent
-                    ? "bg-white/20 border-white/40"
-                    : "bg-[#FFF3E0] border-[#FFB74D] text-[#E65100]"
-                }`}
-              >
-                {new Date(todo.due_at).toLocaleString("ja-JP", {
-                  month: "numeric",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-                まで
-              </span>
-            )}
-            {todo.estimated_time && (
-              <span
-                className={`px-2 py-0.5 rounded border ${
-                  isUrgent
-                    ? "bg-white/20 border-white/40"
-                    : "bg-gray-100 border-gray-300 text-gray-600"
-                }`}
-              >
-                {todo.estimated_time}分
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onEdit}
-            className={`px-2 py-1 text-[10px] font-bold border rounded transition-colors ${
-              isUrgent
-                ? "border-white text-white hover:bg-white/20"
-                : "border-black text-black hover:bg-gray-50"
-            }`}
-          >
-            編集
-          </button>
-          <button
-            type="button"
-            onClick={onToggle}
-            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors group ${
-              isUrgent
-                ? "border-white hover:bg-white/20"
-                : "border-black hover:bg-[#4ECDC4] hover:border-[#4ECDC4]"
+          className="absolute left-0 top-0 bottom-0 w-1.5"
+          style={{ backgroundColor: barColor }}
+        />
+      )}
+      <div className="p-3 pl-4">
+        <div className="flex items-start gap-3">
+          {/* ドラッグハンドル */}
+          <div
+            {...attributes}
+            {...listeners}
+            className={`flex-shrink-0 cursor-grab active:cursor-grabbing p-1 rounded ${
+              isUrgent ? "hover:bg-white/20" : "hover:bg-gray-100"
             }`}
           >
             <svg
-              className="w-3.5 h-3.5 text-white opacity-0 group-hover:opacity-100"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              className={`w-4 h-4 ${isUrgent ? "text-white/70" : "text-gray-400"}`}
+              viewBox="0 0 24 24"
+              fill="currentColor"
             >
-              <title>完了</title>
-              <polyline points="5 11 9 15 15 7" />
+              <title>ドラッグして移動</title>
+              <circle cx="9" cy="6" r="1.5" />
+              <circle cx="15" cy="6" r="1.5" />
+              <circle cx="9" cy="12" r="1.5" />
+              <circle cx="15" cy="12" r="1.5" />
+              <circle cx="9" cy="18" r="1.5" />
+              <circle cx="15" cy="18" r="1.5" />
             </svg>
-          </button>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h3 className="font-black text-base leading-tight mb-1">
+              {todo.title}
+            </h3>
+            <div className="flex gap-2 text-[10px] font-bold flex-wrap">
+              {todo.due_at && (
+                <span
+                  className={`px-2 py-0.5 rounded border ${
+                    isUrgent
+                      ? "bg-white/20 border-white/40"
+                      : "bg-[#FFF3E0] border-[#FFB74D] text-[#E65100]"
+                  }`}
+                >
+                  {new Date(todo.due_at).toLocaleString("ja-JP", {
+                    month: "numeric",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  まで
+                </span>
+              )}
+              {todo.estimated_time && (
+                <span
+                  className={`px-2 py-0.5 rounded border ${
+                    isUrgent
+                      ? "bg-white/20 border-white/40"
+                      : "bg-gray-100 border-gray-300 text-gray-600"
+                  }`}
+                >
+                  {todo.estimated_time}分
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={onEdit}
+              className={`px-2 py-1 text-[10px] font-bold border rounded transition-colors ${
+                isUrgent
+                  ? "border-white text-white hover:bg-white/20"
+                  : "border-black text-black hover:bg-gray-50"
+              }`}
+            >
+              編集
+            </button>
+            <button
+              type="button"
+              onClick={onToggle}
+              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors group ${
+                isUrgent
+                  ? "border-white hover:bg-white/20"
+                  : "border-black hover:bg-[#4ECDC4] hover:border-[#4ECDC4]"
+              }`}
+            >
+              <svg
+                className="w-3.5 h-3.5 text-white opacity-0 group-hover:opacity-100"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <title>完了</title>
+                <polyline points="5 11 9 15 15 7" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -186,6 +210,10 @@ function DroppableGapSlot({
     return `${mins}分`;
   };
 
+  // 空き時間に応じたドロップゾーンの高さを計算（最小80px、最大300px）
+  // 30分 = 80px, 1時間 = 120px, 2時間 = 200px, 3時間以上 = 300px
+  const dropZoneHeight = Math.min(300, Math.max(80, gap.durationMinutes * 2));
+
   return (
     <div className="relative">
       {/* 折りたたみ時の表示 */}
@@ -215,12 +243,14 @@ function DroppableGapSlot({
       {isExpanded && (
         <div
           ref={setNodeRef}
+          style={{ minHeight: dropZoneHeight }}
           className={`p-4 border-2 border-t-0 border-[#4ECDC4] rounded-b-lg transition-all ${
             isOver ? "bg-[#4ECDC4]/30" : "bg-[#4ECDC4]/10"
           }`}
         >
           <div
-            className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
+            style={{ minHeight: dropZoneHeight - 32 }}
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-all flex items-center justify-center ${
               isOver
                 ? "border-[#4ECDC4] bg-[#4ECDC4]/20"
                 : "border-gray-300 bg-white/50"
@@ -228,9 +258,6 @@ function DroppableGapSlot({
           >
             <p className="text-sm font-bold text-gray-500">
               {isOver ? "ここにドロップ！" : "タスクをここにドラッグ"}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              {formatTime(gap.startTime)} から開始
             </p>
           </div>
         </div>
@@ -243,75 +270,115 @@ function DroppableGapSlot({
 function TaskDragOverlay({
   todo,
   width,
+  previewTime,
+  overflowWarning,
 }: {
   todo: Todo;
   width?: number | null;
+  previewTime?: Date | null;
+  overflowWarning?: number | null;
 }) {
   const isUrgent =
     todo.due_at && new Date(todo.due_at) < new Date(Date.now() + 86400000);
 
+  const formatPreviewTime = (date: Date) =>
+    `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+
+  // 所要時間に応じたカラーバーの色
+  const barColor = getTimeColor(todo.estimated_time);
+
   return (
-    <div
-      style={width ? { width } : undefined}
-      className={`border-2 border-black rounded-xl p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
-        isUrgent ? "bg-[#FF6B6B] text-white" : "bg-white text-black"
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        {/* ドラッグハンドル（装飾用） */}
+    <div className="relative pt-8">
+      {/* 配置予定時刻のプレビュー */}
+      {previewTime && (
         <div
-          className={`flex-shrink-0 p-1 rounded ${
-            isUrgent ? "bg-white/20" : "bg-gray-100"
+          className={`absolute top-0 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm font-black shadow-lg whitespace-nowrap z-50 ${
+            overflowWarning
+              ? "bg-[#FF4444] text-white"
+              : "bg-[#4ECDC4] text-white"
           }`}
         >
-          <svg
-            className={`w-4 h-4 ${isUrgent ? "text-white/70" : "text-gray-400"}`}
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <title>ドラッグ中</title>
-            <circle cx="9" cy="6" r="1.5" />
-            <circle cx="15" cy="6" r="1.5" />
-            <circle cx="9" cy="12" r="1.5" />
-            <circle cx="15" cy="12" r="1.5" />
-            <circle cx="9" cy="18" r="1.5" />
-            <circle cx="15" cy="18" r="1.5" />
-          </svg>
+          {overflowWarning ? (
+            <span className="flex items-center gap-1">
+              ⚠️ {formatPreviewTime(previewTime)} 〜
+              <span className="text-xs">({overflowWarning}分超過)</span>
+            </span>
+          ) : (
+            <>{formatPreviewTime(previewTime)} 〜</>
+          )}
         </div>
+      )}
+      <div
+        style={{ width: width ?? undefined }}
+        className={`relative border-2 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden ${
+          isUrgent ? "bg-[#FF6B6B] text-white" : "bg-white text-black"
+        }`}
+      >
+        {/* 左側のカラーバー */}
+        {!isUrgent && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1.5"
+            style={{ backgroundColor: barColor }}
+          />
+        )}
+        <div className="p-3 pl-4">
+          <div className="flex items-start gap-3">
+            {/* ドラッグハンドル（装飾用） */}
+            <div
+              className={`flex-shrink-0 p-1 rounded ${
+                isUrgent ? "bg-white/20" : "bg-gray-100"
+              }`}
+            >
+              <svg
+                className={`w-4 h-4 ${isUrgent ? "text-white/70" : "text-gray-400"}`}
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <title>ドラッグ中</title>
+                <circle cx="9" cy="6" r="1.5" />
+                <circle cx="15" cy="6" r="1.5" />
+                <circle cx="9" cy="12" r="1.5" />
+                <circle cx="15" cy="12" r="1.5" />
+                <circle cx="9" cy="18" r="1.5" />
+                <circle cx="15" cy="18" r="1.5" />
+              </svg>
+            </div>
 
-        <div className="flex-1 min-w-0">
-          <h3 className="font-black text-base leading-tight mb-1 truncate">
-            {todo.title}
-          </h3>
-          <div className="flex gap-2 text-[10px] font-bold flex-wrap">
-            {todo.due_at && (
-              <span
-                className={`px-2 py-0.5 rounded border ${
-                  isUrgent
-                    ? "bg-white/20 border-white/40"
-                    : "bg-[#FFF3E0] border-[#FFB74D] text-[#E65100]"
-                }`}
-              >
-                {new Date(todo.due_at).toLocaleString("ja-JP", {
-                  month: "numeric",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-                まで
-              </span>
-            )}
-            {todo.estimated_time && (
-              <span
-                className={`px-2 py-0.5 rounded border ${
-                  isUrgent
-                    ? "bg-white/20 border-white/40"
-                    : "bg-gray-100 border-gray-300 text-gray-600"
-                }`}
-              >
-                {todo.estimated_time}分
-              </span>
-            )}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-black text-base leading-tight mb-1 truncate">
+                {todo.title}
+              </h3>
+              <div className="flex gap-2 text-[10px] font-bold flex-wrap">
+                {todo.due_at && (
+                  <span
+                    className={`px-2 py-0.5 rounded border ${
+                      isUrgent
+                        ? "bg-white/20 border-white/40"
+                        : "bg-[#FFF3E0] border-[#FFB74D] text-[#E65100]"
+                    }`}
+                  >
+                    {new Date(todo.due_at).toLocaleString("ja-JP", {
+                      month: "numeric",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    まで
+                  </span>
+                )}
+                {todo.estimated_time && (
+                  <span
+                    className={`px-2 py-0.5 rounded border ${
+                      isUrgent
+                        ? "bg-white/20 border-white/40"
+                        : "bg-gray-100 border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    {todo.estimated_time}分
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -328,6 +395,8 @@ export default function TodoPage() {
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
   const [activeDragTodo, setActiveDragTodo] = useState<Todo | null>(null);
   const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const [previewTime, setPreviewTime] = useState<Date | null>(null);
+  const [overflowWarning, setOverflowWarning] = useState<number | null>(null); // はみ出し分数
 
   // D&Dセンサー設定（タッチとポインター両対応）
   const sensors = useSensors(
@@ -500,6 +569,30 @@ export default function TodoPage() {
 
   const timelineItems = buildTimelineItems();
 
+  // タスクが次のタスクや空き時間外にはみ出しているかチェック
+  const getTaskOverflow = (todo: Todo, index: number): number | null => {
+    const startTime = new Date(todo.start_at!);
+    const taskDuration = todo.estimated_time || 30;
+    const endTime = new Date(startTime.getTime() + taskDuration * 60000);
+
+    // 次のアイテムを見つける
+    const nextItem = timelineItems[index + 1];
+    if (nextItem) {
+      let nextStartTime: Date;
+      if (nextItem.type === "todo") {
+        nextStartTime = new Date(nextItem.data.start_at!);
+      } else {
+        nextStartTime = nextItem.data.startTime;
+      }
+
+      if (endTime > nextStartTime) {
+        return Math.ceil((endTime.getTime() - nextStartTime.getTime()) / 60000);
+      }
+    }
+
+    return null;
+  };
+
   // D&Dハンドラー
   const handleDragStart = (event: DragStartEvent) => {
     const todo = event.active.data.current?.todo as Todo | undefined;
@@ -513,9 +606,76 @@ export default function TodoPage() {
     }
   };
 
+  // ドラッグ中の位置から時刻を計算するヘルパー関数
+  const calculateTimeFromPosition = (
+    activeRect: { top: number; height: number } | null,
+    overRect: { top: number; height: number } | null,
+    gap: GapSlot,
+  ): Date | null => {
+    if (!activeRect || !overRect) return null;
+
+    const dropY = activeRect.top + activeRect.height / 2;
+    const relativeY = Math.max(
+      0,
+      Math.min(1, (dropY - overRect.top) / overRect.height),
+    );
+
+    const totalMinutes = gap.durationMinutes * relativeY;
+    const roundedMinutes = Math.round(totalMinutes / 5) * 5;
+
+    let time = new Date(gap.startTime.getTime() + roundedMinutes * 60000);
+
+    if (time >= gap.endTime) {
+      time = new Date(gap.endTime.getTime() - 5 * 60000);
+    }
+
+    return time;
+  };
+
+  const handleDragMove = (event: DragMoveEvent) => {
+    const { active, over } = event;
+
+    if (!over) {
+      setPreviewTime(null);
+      setOverflowWarning(null);
+      return;
+    }
+
+    const gap = over.data.current?.gap as GapSlot | undefined;
+    if (!gap) {
+      setPreviewTime(null);
+      setOverflowWarning(null);
+      return;
+    }
+
+    const overRect = over.rect;
+    const activeRect = active.rect.current.translated;
+
+    const time = calculateTimeFromPosition(activeRect, overRect, gap);
+    setPreviewTime(time);
+
+    // タスクの所要時間が空き時間を超えるかチェック
+    const todo = active.data.current?.todo as Todo | undefined;
+    if (todo && time) {
+      const taskDuration = todo.estimated_time || 30;
+      const remainingMinutes = Math.floor(
+        (gap.endTime.getTime() - time.getTime()) / 60000,
+      );
+      if (taskDuration > remainingMinutes) {
+        setOverflowWarning(taskDuration - remainingMinutes);
+      } else {
+        setOverflowWarning(null);
+      }
+    } else {
+      setOverflowWarning(null);
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveDragTodo(null);
     setDragWidth(null);
+    setPreviewTime(null);
+    setOverflowWarning(null);
 
     const { active, over } = event;
     if (!over) return;
@@ -525,17 +685,27 @@ export default function TodoPage() {
 
     if (!todo || !gap) return;
 
+    // ドロップ位置から時刻を計算（5分刻み）
+    const overRect = over.rect;
+    const activeRect = active.rect.current.translated;
+
+    const newStartAt =
+      calculateTimeFromPosition(activeRect, overRect, gap) ?? gap.startTime;
+
+    const newStartAtISO = newStartAt.toISOString();
+
     // 楽観的UI更新
-    const newStartAt = gap.startTime.toISOString();
     setTodos((prev) =>
-      prev.map((t) => (t.id === todo.id ? { ...t, start_at: newStartAt } : t)),
+      prev.map((t) =>
+        t.id === todo.id ? { ...t, start_at: newStartAtISO } : t,
+      ),
     );
 
     // 展開状態をリセット
     setExpandedSlots(new Set());
 
     try {
-      await updateTodo(todo.id, { start_at: newStartAt });
+      await updateTodo(todo.id, { start_at: newStartAtISO });
     } catch (e) {
       // エラー時はロールバック
       setTodos((prev) =>
@@ -600,6 +770,7 @@ export default function TodoPage() {
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
       >
         <div className="pb-20 font-sans">
@@ -646,7 +817,7 @@ export default function TodoPage() {
           {/* Timeline with Scheduled Tasks and Gap Slots */}
           {timelineItems.length > 0 ? (
             <div className="space-y-2 mb-6">
-              {timelineItems.map((item) => {
+              {timelineItems.map((item, index) => {
                 if (item.type === "gap") {
                   return (
                     <DroppableGapSlot
@@ -663,78 +834,105 @@ export default function TodoPage() {
                 const endTime = new Date(
                   startTime.getTime() + (todo.estimated_time || 30) * 60000,
                 );
+                const barColor = getTimeColor(todo.estimated_time);
+                const overflow = getTaskOverflow(todo, index);
 
                 return (
                   <div
                     key={todo.id}
-                    className="bg-white border-2 border-black rounded-xl p-3 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-transform"
+                    className={`relative bg-white border-2 rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-transform overflow-hidden ${
+                      overflow ? "border-[#FF4444]" : "border-black"
+                    }`}
                   >
-                    <div className="flex items-start gap-3">
-                      {/* Time */}
-                      <div className="flex-shrink-0 w-16 pt-0.5">
-                        <div className="text-xs font-black text-[#4ECDC4]">
-                          {startTime.getHours().toString().padStart(2, "0")}:
-                          {startTime.getMinutes().toString().padStart(2, "0")}
-                        </div>
-                        <div className="text-[10px] font-bold text-gray-400">
-                          ~{endTime.getHours().toString().padStart(2, "0")}:
-                          {endTime.getMinutes().toString().padStart(2, "0")}
-                        </div>
+                    {/* 左側のカラーバー */}
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-1.5"
+                      style={{
+                        backgroundColor: overflow ? "#FF4444" : barColor,
+                      }}
+                    />
+                    {/* 警告バッジ */}
+                    {overflow && (
+                      <div className="absolute bottom-2 right-2 bg-[#FF4444] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md z-10">
+                        ⚠️ {overflow}分超過
                       </div>
+                    )}
+                    <div className="p-3 pl-4">
+                      <div className="flex items-start gap-2">
+                        {/* Time */}
+                        <div className="flex-shrink-0 w-12 pt-0.5">
+                          <div className="text-xs font-black text-gray-800">
+                            {startTime.getHours().toString().padStart(2, "0")}:
+                            {startTime.getMinutes().toString().padStart(2, "0")}
+                          </div>
+                          <div className="text-[10px] font-bold text-gray-400">
+                            ~{endTime.getHours().toString().padStart(2, "0")}:
+                            {endTime.getMinutes().toString().padStart(2, "0")}
+                          </div>
+                        </div>
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-black text-base leading-tight mb-1">
-                          {todo.title}
-                        </h3>
-                        {todo.estimated_time && (
-                          <span className="inline-block text-[10px] font-bold bg-gray-100 px-2 py-0.5 rounded border border-gray-300">
-                            {todo.estimated_time}分
-                          </span>
-                        )}
-                      </div>
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-black text-base leading-tight mb-1 break-words text-gray-900">
+                            {todo.title}
+                          </h3>
+                          {todo.estimated_time && (
+                            <span
+                              className="inline-block text-[10px] font-bold px-2 py-0.5 rounded border text-gray-700"
+                              style={{
+                                backgroundColor: `${barColor}30`,
+                                borderColor: barColor,
+                              }}
+                            >
+                              {todo.estimated_time}分
+                            </span>
+                          )}
+                        </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {/* 未配置に戻すボタン（deadline タスクのみ） */}
-                        {todo.task_type === "deadline" && (
+                        {/* Actions */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {/* 未配置に戻すボタン（deadline タスクのみ） */}
+                          {todo.task_type === "deadline" && (
+                            <button
+                              type="button"
+                              onClick={() => handleUnschedule(todo)}
+                              className="px-2 py-1 text-[10px] font-bold rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+                              title="未配置に戻す"
+                            >
+                              解除
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => handleUnschedule(todo)}
-                            className="px-2 py-1 text-[10px] font-bold border border-gray-400 rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
-                            title="未配置に戻す"
+                            onClick={() =>
+                              router.push(
+                                `/todo/task-modal?id=${todo.id}&open=1`,
+                              )
+                            }
+                            className="px-2 py-1 text-[10px] font-bold rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
                           >
-                            解除
+                            編集
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            router.push(`/todo/task-modal?id=${todo.id}&open=1`)
-                          }
-                          className="px-2 py-1 text-[10px] font-bold border border-black rounded bg-white hover:bg-gray-50"
-                        >
-                          編集
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggle(todo.id, false)}
-                          className="w-6 h-6 rounded-full border-2 border-black flex items-center justify-center hover:bg-[#4ECDC4] hover:border-[#4ECDC4] transition-colors group"
-                        >
-                          <svg
-                            className="w-3.5 h-3.5 text-white opacity-0 group-hover:opacity-100"
-                            viewBox="0 0 20 20"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
+                          <button
+                            type="button"
+                            onClick={() => handleToggle(todo.id, false)}
+                            className="w-7 h-7 rounded-full bg-white border-2 border-gray-600 hover:bg-[#4ECDC4] flex items-center justify-center transition-colors group"
                           >
-                            <title>完了</title>
-                            <polyline points="5 11 9 15 15 7" />
-                          </svg>
-                        </button>
+                            <svg
+                              className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors"
+                              viewBox="0 0 20 20"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <title>完了</title>
+                              <polyline points="5 11 9 15 15 7" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -870,7 +1068,12 @@ export default function TodoPage() {
         {/* Drag Overlay */}
         <DragOverlay>
           {activeDragTodo && (
-            <TaskDragOverlay todo={activeDragTodo} width={dragWidth} />
+            <TaskDragOverlay
+              todo={activeDragTodo}
+              width={dragWidth}
+              previewTime={previewTime}
+              overflowWarning={overflowWarning}
+            />
           )}
         </DragOverlay>
       </DndContext>{" "}

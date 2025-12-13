@@ -149,3 +149,43 @@ export const updateTodo = async (
   if (error) throw new Error(error.message);
   return data as Todo;
 };
+
+// 指定した時間帯に重複するタスクを取得する
+export const getOverlappingTodos = async (
+  userId: string,
+  startAt: Date,
+  estimatedMinutes: number,
+  excludeId?: string,
+): Promise<Todo[]> => {
+  // 新規タスクの終了時刻を計算
+  const newEndAt = new Date(startAt.getTime() + estimatedMinutes * 60000);
+
+  // start_atが設定されている未完了タスクを取得
+  const { data, error } = await supabase
+    .from("todos")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_completed", false)
+    .not("start_at", "is", null);
+
+  if (error) throw new Error(error.message);
+  if (!data) return [];
+
+  // クライアントサイドで時間帯の重複を判定
+  const overlapping = data.filter((todo) => {
+    // 自分自身は除外（編集時）
+    if (excludeId && todo.id === excludeId) return false;
+    // start_atがnullの場合はスキップ（クエリで除外済みだが念のため）
+    if (!todo.start_at) return false;
+
+    const existingStart = new Date(todo.start_at);
+    const existingEnd = new Date(
+      existingStart.getTime() + (todo.estimated_time || 0) * 60000,
+    );
+
+    // 重複条件: 新規タスクの開始 < 既存タスクの終了 AND 新規タスクの終了 > 既存タスクの開始
+    return startAt < existingEnd && newEndAt > existingStart;
+  });
+
+  return overlapping;
+};

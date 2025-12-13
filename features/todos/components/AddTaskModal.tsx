@@ -4,9 +4,11 @@ import { useEffect, useId, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
 import {
   addTodo,
+  getOverlappingTodos,
   type RecurrenceType,
-  type TaskType,
+  type Todo,
 } from "@/features/todos/api";
+import { BookingWarningDialog } from "./BookingWarningDialog";
 
 export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
   // 入力ステート
@@ -25,6 +27,10 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
 
   // 繰り返し設定のステート
   const [recurrence, setRecurrence] = useState<RecurrenceType>(null);
+
+  // 重複警告ダイアログ用のステート
+  const [showWarningDialog, setShowWarningDialog] = useState(false);
+  const [overlappingTodos, setOverlappingTodos] = useState<Todo[]>([]);
 
   // 初期値セット（次の00分）
   useEffect(() => {
@@ -59,6 +65,38 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("ログインしてください");
 
+      // 開始日時モードの場合、重複チェックを実行
+      if (dateMode === "start" && selectedDate) {
+        const startAt = new Date(selectedDate);
+        const overlapping = await getOverlappingTodos(
+          user.id,
+          startAt,
+          estimated,
+        );
+
+        // 重複がある場合は警告ダイアログを表示
+        if (overlapping.length > 0) {
+          setOverlappingTodos(overlapping);
+          setShowWarningDialog(true);
+          return;
+        }
+      }
+
+      // 重複がない場合、または期限モードの場合は直接保存
+      await saveTask();
+    } catch (e) {
+      alert("エラー: " + (e as Error).message);
+    }
+  };
+
+  // 実際の保存処理
+  const saveTask = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("ログインしてください");
+
       await addTodo(
         title,
         user.id,
@@ -73,7 +111,19 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
       onClose();
     } catch (e) {
       alert("エラー: " + (e as Error).message);
+      setShowWarningDialog(false);
     }
+  };
+
+  // 警告ダイアログから「このまま保存する」を選択
+  const handleConfirmSave = () => {
+    saveTask();
+  };
+
+  // 警告ダイアログから「時間を変更する」を選択
+  const handleChangeTime = () => {
+    setShowWarningDialog(false);
+    setOverlappingTodos([]);
   };
 
   return (
@@ -277,6 +327,15 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
           )}
         </div>
       </div>
+
+      {/* 重複警告ダイアログ */}
+      {showWarningDialog && overlappingTodos.length > 0 && (
+        <BookingWarningDialog
+          overlappingTodos={overlappingTodos}
+          onConfirmSave={handleConfirmSave}
+          onChangeTime={handleChangeTime}
+        />
+      )}
     </div>
   );
 };
