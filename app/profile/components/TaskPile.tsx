@@ -121,6 +121,8 @@ export default function TaskPile({ tasks }: TaskPileProps) {
 
     // Add mouse control
     const mouse = Mouse.create(render.canvas);
+    mouse.pixelRatio = window.devicePixelRatio;
+
     const mouseConstraint = MouseConstraint.create(engine, {
       mouse: mouse,
       constraint: {

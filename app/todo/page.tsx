@@ -2,18 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  FiCalendar,
-  FiClock,
-  FiLogOut,
-  FiPlus,
-  FiTrash2,
-} from "react-icons/fi";
-import { MdOutlineTimer } from "react-icons/md";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { supabase } from "@/app/lib/supabase";
-import { logout } from "@/features/auth/api";
 import {
-  deleteTodo,
   getTodos,
   type Todo,
   toggleTodoCompletion,
@@ -25,6 +16,7 @@ export default function TodoPage() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   useEffect(() => {
     const init = async () => {
@@ -39,13 +31,7 @@ export default function TodoPage() {
 
       try {
         const data = await getTodos();
-        const sortedData = data.sort((a, b) => {
-          if (a.is_completed === b.is_completed) {
-            return 0;
-          }
-          return a.is_completed ? 1 : -1;
-        });
-        setTodos(sortedData);
+        setTodos(data);
       } catch (e) {
         console.error(e);
         alert("データ取得失敗");
@@ -59,50 +45,56 @@ export default function TodoPage() {
   const handleToggle = async (id: string, currentStatus: boolean) => {
     try {
       const updated = await toggleTodoCompletion(id, !currentStatus);
-      setTodos((prev) =>
-        prev
-          .map((t) => (t.id === id ? updated : t))
-          .sort((a, b) =>
-            a.is_completed === b.is_completed ? 0 : a.is_completed ? 1 : -1,
-          ),
-      );
+      setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch (e) {
       alert("更新失敗");
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("本当に削除しますか？")) return;
-    try {
-      await deleteTodo(id);
-      setTodos(todos.filter((t) => t.id !== id));
-    } catch (e) {
-      alert("削除失敗");
-    }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("ja-JP", {
-      month: "numeric",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      weekday: "short",
+  const goToPreviousDay = () => {
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() - 1);
+      return newDate;
     });
   };
 
-  const formatDuration = (minutes: number) => {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    if (h === 0 && m === 0) return "0分";
-    return `${h > 0 ? `${h}時間` : ""}${m > 0 ? `${m}分` : ""}`;
+  const goToNextDay = () => {
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() + 1);
+      return newDate;
+    });
   };
+
+  // Filter todos for the selected date
+  const isSameDay = (date1: Date, date2: Date) => {
+    return (
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getDate() === date2.getDate()
+    );
+  };
+
+  const scheduledTodos = todos.filter(
+    (t) =>
+      t.start_at &&
+      !t.is_completed &&
+      isSameDay(new Date(t.start_at), selectedDate),
+  );
+  const unscheduledTodos = todos.filter((t) => !t.start_at && !t.is_completed);
+  const completedTodos = todos.filter((t) => t.is_completed);
+
+  // Get date string for display
+  const dateStr = `${selectedDate.getMonth() + 1}/${selectedDate.getDate()}(${["日", "月", "火", "水", "木", "金", "土"][selectedDate.getDay()]})`;
+
+  // Group scheduled todos by hour
+  const todosByHour: Record<number, Todo[]> = {};
+  scheduledTodos.forEach((todo) => {
+    const hour = new Date(todo.start_at!).getHours();
+    if (!todosByHour[hour]) todosByHour[hour] = [];
+    todosByHour[hour].push(todo);
+  });
 
   if (loading)
     return (
@@ -115,78 +107,219 @@ export default function TodoPage() {
 
   return (
     <Frame active="todo">
-      <div className="pb-20">
-        {/* Header */}
-        <header className="flex justify-between items-end mb-6">
-          <div>
-            <h1 className="text-3xl font-black text-black tracking-tight">
-              マイタスク
-            </h1>
-            <p className="text-gray-600 font-bold text-sm mt-1">
-              残り{" "}
-              <span className="text-[#FF6B6B] text-lg">
-                {todos.filter((t) => !t.is_completed).length}
-              </span>{" "}
-              件
-            </p>
-          </div>
+      <div className="pb-20 font-sans">
+        {/* Top Buttons */}
+        <div className="flex gap-3 mb-6">
           <button
             type="button"
-            onClick={handleLogout}
-            className="p-2 text-black border-2 border-black rounded-lg hover:bg-gray-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all"
-            title="ログアウト"
+            onClick={() => router.push("/todo/task-modal?open=1")}
+            className="flex-1 bg-white border-2 border-black rounded-full py-2 px-4 font-bold text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-[2px] active:shadow-none transition-all hover:bg-gray-50"
           >
-            <FiLogOut size={20} />
+            TODO作成
           </button>
-        </header>
+          <button
+            type="button"
+            className="flex-1 bg-white border-2 border-black rounded-full py-2 px-4 font-bold text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-[2px] active:shadow-none transition-all hover:bg-gray-50"
+          >
+            カレンダー
+          </button>
+        </div>
 
-        {/* Add Button */}
-        <button
-          type="button"
-          onClick={() => router.push("/todo/task-modal?open=1")}
-          className="w-full mb-6 bg-[#4ECDC4] text-white font-black py-3 px-4 rounded-xl border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
-        >
-          <FiPlus size={24} strokeWidth={3} />
-          <span>新しいタスクを追加</span>
-        </button>
+        {/* Date Header */}
+        <div className="flex items-center justify-between mb-4 bg-white border-2 border-black rounded-lg p-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+          <button
+            type="button"
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            onClick={goToPreviousDay}
+            aria-label="前の日"
+          >
+            <FiChevronLeft size={20} className="text-gray-700" />
+          </button>
+          <span className="font-black text-base tracking-wide text-gray-700">
+            {dateStr} スケジュール
+          </span>
+          <button
+            type="button"
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            onClick={goToNextDay}
+            aria-label="次の日"
+          >
+            <FiChevronRight size={20} className="text-gray-700" />
+          </button>
+        </div>
 
-        {/* Task List */}
-        <ul className="space-y-4">
-          {todos.map((todo) => {
-            const isOverdue =
-              !todo.is_completed &&
-              todo.due_at &&
-              new Date(todo.due_at) < new Date();
+        {/* Scheduled Tasks - Compact Cards */}
+        {scheduledTodos.length > 0 ? (
+          <div className="space-y-3 mb-6">
+            {scheduledTodos.map((todo) => {
+              const startTime = new Date(todo.start_at!);
+              const endTime = new Date(
+                startTime.getTime() + (todo.estimated_time || 30) * 60000,
+              );
 
-            return (
-              <li
-                key={todo.id}
-                className={`group relative bg-white p-4 rounded-xl border-2 border-black transition-all duration-200 ${
-                  todo.is_completed
-                    ? "opacity-60 bg-gray-50"
-                    : "shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {/* Checkbox */}
-                  <div className="pt-1">
-                    <label className="inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={todo.is_completed ?? false}
-                        onChange={() =>
-                          handleToggle(todo.id, todo.is_completed ?? false)
+              return (
+                <div
+                  key={todo.id}
+                  className="bg-white border-2 border-black rounded-xl p-3 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-transform"
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Time */}
+                    <div className="flex-shrink-0 w-16 pt-0.5">
+                      <div className="text-xs font-black text-[#4ECDC4]">
+                        {startTime.getHours().toString().padStart(2, "0")}:
+                        {startTime.getMinutes().toString().padStart(2, "0")}
+                      </div>
+                      <div className="text-[10px] font-bold text-gray-400">
+                        ~{endTime.getHours().toString().padStart(2, "0")}:
+                        {endTime.getMinutes().toString().padStart(2, "0")}
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-black text-base leading-tight mb-1">
+                        {todo.title}
+                      </h3>
+                      {todo.estimated_time && (
+                        <span className="inline-block text-[10px] font-bold bg-gray-100 px-2 py-0.5 rounded border border-gray-300">
+                          {todo.estimated_time}分
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(`/todo/task-modal?id=${todo.id}&open=1`)
                         }
-                        className="sr-only peer"
-                        aria-label={todo.title || "タスク"}
-                      />
-                      <span
-                        className="w-6 h-6 flex items-center justify-center border-2 border-black rounded-md bg-white peer-checked:bg-[#4ECDC4] transition-colors duration-200
-                        peer-focus:ring-2 peer-focus:ring-offset-2 peer-focus:ring-[#4ECDC4]"
+                        className="px-2 py-1 text-[10px] font-bold border border-black rounded bg-white hover:bg-gray-50"
                       >
-                        {/* Checkmark */}
+                        編集
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggle(todo.id, false)}
+                        className="w-6 h-6 rounded-full border-2 border-black flex items-center justify-center hover:bg-[#4ECDC4] hover:border-[#4ECDC4] transition-colors group"
+                      >
                         <svg
-                          className={`w-4 h-4 text-white ${todo.is_completed ? "opacity-100" : "opacity-0"}`}
+                          className="w-3.5 h-3.5 text-white opacity-0 group-hover:opacity-100"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <title>完了</title>
+                          <polyline points="5 11 9 15 15 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mb-6 text-center py-8 border-2 border-dashed border-gray-300 rounded-xl">
+            <p className="text-sm font-bold text-gray-400">
+              今日のスケジュールはありません
+            </p>
+          </div>
+        )}
+
+        {/* Unplaced Tasks Section */}
+        <div className="mt-6">
+          <div className="flex justify-between items-center mb-3 px-1">
+            <h2 className="font-black text-lg text-black">未配置タスク</h2>
+            <span className="text-[10px] font-bold text-gray-500">
+              {unscheduledTodos.length}件
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {unscheduledTodos.length === 0 && (
+              <div className="text-center py-6 text-gray-400 font-bold text-sm border-2 border-dashed border-gray-300 rounded-xl">
+                未配置のタスクはありません
+              </div>
+            )}
+
+            {unscheduledTodos.map((todo) => {
+              const isUrgent =
+                todo.due_at &&
+                new Date(todo.due_at) < new Date(Date.now() + 86400000);
+
+              return (
+                <div
+                  key={todo.id}
+                  className={`relative border-2 border-black rounded-xl p-3 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-0.5 ${
+                    isUrgent ? "bg-[#FF6B6B] text-white" : "bg-white text-black"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-black text-base leading-tight mb-1">
+                        {todo.title}
+                      </h3>
+                      <div className="flex gap-2 text-[10px] font-bold flex-wrap">
+                        {todo.due_at && (
+                          <span
+                            className={`px-2 py-0.5 rounded border ${
+                              isUrgent
+                                ? "bg-white/20 border-white/40"
+                                : "bg-[#FFF3E0] border-[#FFB74D] text-[#E65100]"
+                            }`}
+                          >
+                            {new Date(todo.due_at).toLocaleString("ja-JP", {
+                              month: "numeric",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                            まで
+                          </span>
+                        )}
+                        {todo.estimated_time && (
+                          <span
+                            className={`px-2 py-0.5 rounded border ${
+                              isUrgent
+                                ? "bg-white/20 border-white/40"
+                                : "bg-gray-100 border-gray-300 text-gray-600"
+                            }`}
+                          >
+                            {todo.estimated_time}分
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(`/todo/task-modal?id=${todo.id}&open=1`)
+                        }
+                        className={`px-2 py-1 text-[10px] font-bold border rounded transition-colors ${
+                          isUrgent
+                            ? "border-white text-white hover:bg-white/20"
+                            : "border-black text-black hover:bg-gray-50"
+                        }`}
+                      >
+                        編集
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggle(todo.id, false)}
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors group ${
+                          isUrgent
+                            ? "border-white hover:bg-white/20"
+                            : "border-black hover:bg-[#4ECDC4] hover:border-[#4ECDC4]"
+                        }`}
+                      >
+                        <svg
+                          className="w-3.5 h-3.5 text-white opacity-0 group-hover:opacity-100"
                           viewBox="0 0 20 20"
                           fill="none"
                           stroke="currentColor"
@@ -194,91 +327,89 @@ export default function TodoPage() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         >
-                          <title>Checkmark icon</title>
+                          <title>完了</title>
                           <polyline points="5 11 9 15 15 7" />
                         </svg>
-                      </span>
-                    </label>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start gap-2">
-                      <h3
-                        className={`text-lg font-bold leading-tight break-words ${
-                          todo.is_completed
-                            ? "text-gray-500 line-through decoration-2"
-                            : "text-black"
-                        }`}
-                      >
-                        {todo.title}
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(todo.id)}
-                        className="text-black hover:text-[#FF6B6B] p-1 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                        title="削除"
-                      >
-                        <FiTrash2 size={18} strokeWidth={2.5} />
                       </button>
-                    </div>
-
-                    {/* Meta Info */}
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-                      {/* Start Date */}
-                      {todo.start_at && (
-                        <div className="flex items-center gap-1 bg-[#E0F7FA] text-[#006064] px-2 py-1 rounded border border-black">
-                          <FiCalendar />
-                          <span>{formatDate(todo.start_at)}</span>
-                        </div>
-                      )}
-
-                      {/* Due Date */}
-                      {(todo.due_at || isOverdue) && (
-                        <div
-                          className={`flex items-center gap-1 px-2 py-1 rounded border border-black ${
-                            isOverdue
-                              ? "bg-[#FFEBEE] text-[#C62828]"
-                              : "bg-[#FFF3E0] text-[#E65100]"
-                          }`}
-                        >
-                          <FiClock />
-                          <span>
-                            {todo.due_at ? formatDate(todo.due_at) : "期限なし"}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Estimated Time */}
-                      {todo.estimated_time && (
-                        <div className="flex items-center gap-1 bg-[#F3E5F5] text-[#4A148C] px-2 py-1 rounded border border-black">
-                          <MdOutlineTimer size={14} />
-                          <span>{formatDuration(todo.estimated_time)}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
-              </li>
-            );
-          })}
+              );
+            })}
+          </div>
+        </div>
 
-          {todos.length === 0 && (
-            <div className="text-center py-12 px-4 border-2 border-dashed border-gray-300 rounded-xl">
-              <div className="bg-[#E0F7FA] w-16 h-16 rounded-full border-2 border-black flex items-center justify-center mx-auto mb-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                <FiCalendar className="text-[#006064] text-2xl" />
-              </div>
-              <h3 className="text-lg font-black text-black">
-                タスクがありません
-              </h3>
-              <p className="text-gray-500 mt-1 font-bold text-sm">
-                新しいタスクを追加して
-                <br />
-                整理整頓を始めましょう！
-              </p>
+        {/* Completed Tasks Section */}
+        {completedTodos.length > 0 && (
+          <div className="mt-6">
+            <div className="flex justify-between items-center mb-3 px-1">
+              <h2 className="font-black text-lg text-gray-500">完了済み</h2>
+              <span className="text-[10px] font-bold text-gray-400">
+                {completedTodos.length}件
+              </span>
             </div>
-          )}
-        </ul>
+
+            <div className="space-y-3">
+              {completedTodos.map((todo) => {
+                const dueDate = todo.due_at ? new Date(todo.due_at) : null;
+
+                return (
+                  <div
+                    key={todo.id}
+                    className="relative border-2 border-gray-300 rounded-xl p-3 bg-gray-50 opacity-60"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-black text-base leading-tight mb-1 text-gray-500 line-through">
+                          {todo.title}
+                        </h3>
+                        <div className="flex gap-2 text-[10px] font-bold flex-wrap">
+                          {dueDate && (
+                            <span className="px-2 py-0.5 rounded border bg-gray-100 border-gray-300 text-gray-500">
+                              {dueDate.toLocaleString("ja-JP", {
+                                month: "numeric",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                              まで
+                            </span>
+                          )}
+                          {todo.estimated_time && (
+                            <span className="px-2 py-0.5 rounded border bg-gray-100 border-gray-300 text-gray-500">
+                              {todo.estimated_time}分
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggle(todo.id, true)}
+                          className="w-6 h-6 rounded-full border-2 border-gray-400 bg-[#4ECDC4] flex items-center justify-center hover:opacity-80 transition-opacity"
+                          title="未完了に戻す"
+                        >
+                          <svg
+                            className="w-3.5 h-3.5 text-white"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <title>未完了に戻す</title>
+                            <polyline points="5 11 9 15 15 7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </Frame>
   );
