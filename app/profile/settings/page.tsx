@@ -31,20 +31,50 @@ export default function ProfileSettingsPage() {
   /* ---------------- 初期ロード ---------------- */
   useEffect(() => {
     const init = async () => {
-      try {
-        const v = localStorage.getItem("profileAvatar");
-        if (v) setPreview(v);
-      } catch {}
-
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
         setLoading(false);
         return;
       }
 
-      // ユーザー名を取得
-      if (userData.user.user_metadata?.username) {
-        setUsername(userData.user.user_metadata.username);
+      // Supabaseからプロフィール情報を取得
+      try {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("avatar_url, username")
+          .eq("id", userData.user.id)
+          .single();
+
+        if (profileData) {
+          // アバター画像を設定
+          if (profileData.avatar_url) {
+            setPreview(profileData.avatar_url);
+            localStorage.setItem("profileAvatar", profileData.avatar_url);
+          } else {
+            // localStorageからフォールバック
+            try {
+              const v = localStorage.getItem("profileAvatar");
+              if (v) setPreview(v);
+            } catch {}
+          }
+
+          // ユーザー名を設定
+          if (profileData.username) {
+            setUsername(profileData.username);
+          } else if (userData.user.user_metadata?.username) {
+            setUsername(userData.user.user_metadata.username);
+          }
+        }
+      } catch (error) {
+        console.error("プロフィール情報の取得エラー:", error);
+        // エラー時はlocalStorageからフォールバック
+        try {
+          const v = localStorage.getItem("profileAvatar");
+          if (v) setPreview(v);
+        } catch {}
+        if (userData.user.user_metadata?.username) {
+          setUsername(userData.user.user_metadata.username);
+        }
       }
 
       try {
@@ -399,14 +429,30 @@ export default function ProfileSettingsPage() {
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (!f) return;
                       const reader = new FileReader();
-                      reader.onload = () => {
+                      reader.onload = async () => {
                         const result = String(reader.result);
                         setPreview(result);
                         localStorage.setItem("profileAvatar", result);
+
+                        // Supabaseのprofilesテーブルにも保存
+                        try {
+                          const { data: userData } =
+                            await supabase.auth.getUser();
+                          if (userData.user) {
+                            await supabase
+                              .from("profiles")
+                              .update({ avatar_url: result })
+                              .eq("id", userData.user.id);
+                            console.log("✅ アバターをSupabaseに保存しました");
+                          }
+                        } catch (error) {
+                          console.error("❌ アバター保存エラー:", error);
+                        }
+
                         // カスタムイベントを発火して他のコンポーネントに通知
                         window.dispatchEvent(new Event("avatarUpdated"));
                       };
