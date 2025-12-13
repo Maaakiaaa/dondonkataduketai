@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { getTodos, type Todo } from "@/features/todos/api";
 import Frame from "../components/Frame";
 
 interface Track {
@@ -93,12 +94,15 @@ declare global {
 export default function MusicPage() {
   const durationInputId = useId();
   const genreInputId = useId();
+  const taskSelectId = useId();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tracks, setTracks] = useState<TracksData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPlaylistCreator, setShowPlaylistCreator] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [selectedGenre, setSelectedGenre] = useState<string>("");
+  const [selectedTaskId, setSelectedTaskId] = useState<string>("");
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [generatedPlaylist, setGeneratedPlaylist] = useState<Track[] | null>(
     null,
   );
@@ -134,16 +138,28 @@ export default function MusicPage() {
     }
   }, []);
 
+  const fetchTodos = useCallback(async () => {
+    try {
+      const todosData = await getTodos();
+      // 未完了のタスクのみを取得
+      const incompleteTodos = todosData.filter((todo) => !todo.is_completed);
+      setTodos(incompleteTodos);
+    } catch (err) {
+      console.error("タスクの取得に失敗しました:", err);
+    }
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("authenticated") === "true") {
       setIsAuthenticated(true);
       fetchTracks();
+      fetchTodos();
     }
     if (params.get("error")) {
       setError(params.get("error"));
     }
-  }, [fetchTracks]);
+  }, [fetchTracks, fetchTodos]);
 
   // Spotify Web Playback SDKの初期化
   useEffect(() => {
@@ -296,6 +312,16 @@ export default function MusicPage() {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  const handleTaskSelect = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    if (taskId) {
+      const selectedTask = todos.find((todo) => todo.id === taskId);
+      if (selectedTask) {
+        setDurationMinutes(selectedTask.estimated_time);
+      }
+    }
   };
 
   const handleGeneratePlaylist = async () => {
@@ -618,6 +644,33 @@ export default function MusicPage() {
             ) : (
               <>
                 <div className="rounded-md border p-4 space-y-4">
+                  <div>
+                    <label
+                      htmlFor={taskSelectId}
+                      className="block text-sm font-medium"
+                    >
+                      タスクを選択（任意）
+                    </label>
+                    <select
+                      id={taskSelectId}
+                      value={selectedTaskId}
+                      onChange={(e) => handleTaskSelect(e.target.value)}
+                      className="mt-2 w-full rounded-md border p-2"
+                    >
+                      <option value="">タスクなし（手動入力）</option>
+                      {todos.map((todo) => (
+                        <option key={todo.id} value={todo.id}>
+                          {todo.title} ({todo.estimated_time}分)
+                        </option>
+                      ))}
+                    </select>
+                    {selectedTaskId && (
+                      <p className="mt-1 text-xs text-blue-600">
+                        ✓ タスクの所要時間が自動的に設定されました
+                      </p>
+                    )}
+                  </div>
+
                   <div>
                     <label
                       htmlFor={durationInputId}
