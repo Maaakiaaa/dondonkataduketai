@@ -20,8 +20,8 @@ export default function Frame({ children, active = "home" }: Props) {
     }`;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FFD700] bg-[radial-gradient(#ffffff_4px,transparent_4px)] [background-size:24px_24px] p-6 font-sans">
-      <div className="w-[360px] h-[780px] bg-white rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] border-4 border-black flex flex-col overflow-hidden">
+    <div className="h-[100dvh] w-full flex items-center justify-center bg-[#FFD700] bg-[radial-gradient(#ffffff_4px,transparent_4px)] [background-size:24px_24px] p-4 md:p-6 font-sans overflow-hidden">
+      <div className="w-full max-w-[360px] h-full bg-white text-black rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] border-4 border-black flex flex-col overflow-hidden">
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3 border-b-4 border-black bg-white z-10">
           <div className="mx-2">
