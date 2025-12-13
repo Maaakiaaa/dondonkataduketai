@@ -2,7 +2,11 @@
 
 import { useEffect, useId, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
-import { addTodo, type RecurrenceType } from "@/features/todos/api";
+import {
+  addTodo,
+  type RecurrenceType,
+  type TaskType,
+} from "@/features/todos/api";
 
 export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
   // 入力ステート
@@ -62,6 +66,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
         dateMode === "start" ? new Date(selectedDate).toISOString() : undefined,
         dateMode === "due" ? new Date(selectedDate).toISOString() : undefined,
         recurrence,
+        dateMode === "start" ? "scheduled" : "deadline",
       );
 
       alert("保存しました！");

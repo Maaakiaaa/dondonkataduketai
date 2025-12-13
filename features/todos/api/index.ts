@@ -5,6 +5,7 @@ import type { Database } from "@/app/types/database.types";
 export type Todo = Database["public"]["Tables"]["todos"]["Row"];
 type NewTodo = Database["public"]["Tables"]["todos"]["Insert"];
 export type RecurrenceType = "daily" | "weekly" | "monthly" | null;
+export type TaskType = "scheduled" | "deadline";
 
 // 日付計算用のヘルパー関数
 const calculateNextDate = (
@@ -46,6 +47,7 @@ export const addTodo = async (
   startAt: string | undefined,
   dueAt?: string | undefined,
   recurrenceType?: RecurrenceType,
+  taskType?: TaskType,
 ) => {
   const newTodo: NewTodo = {
     title,
@@ -55,6 +57,7 @@ export const addTodo = async (
     start_at: startAt ?? null,
     due_at: dueAt ?? null,
     recurrence_type: recurrenceType ?? null,
+    task_type: taskType ?? "deadline",
   };
 
   const { data, error } = await supabase

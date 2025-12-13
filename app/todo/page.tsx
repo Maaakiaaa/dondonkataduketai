@@ -557,6 +557,32 @@ export default function TodoPage() {
     });
   };
 
+  // タスクを未配置に戻す（task_type=deadlineのタスクのみ）
+  const handleUnschedule = async (todo: Todo) => {
+    if (todo.task_type === "scheduled") {
+      alert("開始時間付きタスクは未配置に戻せません");
+      return;
+    }
+
+    // 楽観的UI更新
+    const previousStartAt = todo.start_at;
+    setTodos((prev) =>
+      prev.map((t) => (t.id === todo.id ? { ...t, start_at: null } : t)),
+    );
+
+    try {
+      await updateTodo(todo.id, { start_at: null });
+    } catch (e) {
+      // エラー時はロールバック
+      setTodos((prev) =>
+        prev.map((t) =>
+          t.id === todo.id ? { ...t, start_at: previousStartAt } : t,
+        ),
+      );
+      alert("未配置への変更に失敗しました");
+    }
+  };
+
   // Get date string for display
   const dateStr = `${selectedDate.getMonth() + 1}/${selectedDate.getDate()}(${["日", "月", "火", "水", "木", "金", "土"][selectedDate.getDay()]})`;
 
@@ -670,6 +696,17 @@ export default function TodoPage() {
 
                       {/* Actions */}
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* 未配置に戻すボタン（deadline タスクのみ） */}
+                        {todo.task_type === "deadline" && (
+                          <button
+                            type="button"
+                            onClick={() => handleUnschedule(todo)}
+                            className="px-2 py-1 text-[10px] font-bold border border-gray-400 rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
+                            title="未配置に戻す"
+                          >
+                            解除
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() =>
