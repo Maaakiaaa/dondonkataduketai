@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { durationMinutes } = body;
+    const { durationMinutes, genre } = body;
 
     if (!durationMinutes || durationMinutes <= 0) {
       return NextResponse.json({ error: "Invalid duration" }, { status: 400 });
@@ -65,6 +65,10 @@ export async function POST(request: NextRequest) {
 
     const targetDurationMs = durationMinutes * 60 * 1000;
 
+    const genreCondition = genre
+      ? `\n- ジャンルは「${genre}」に関連する楽曲を優先的に選んでください`
+      : "";
+
     const prompt = `以下の楽曲リストから、合計再生時間が約${durationMinutes}分（${targetDurationMs}ミリ秒）になるように楽曲を選んでプレイリストを作成してください。
 
 楽曲リスト:
@@ -76,7 +80,7 @@ ${uniqueTracks
   .join("\n")}
 
 要件:
-- 合計再生時間が目標時間（${targetDurationMs}ms）に可能な限り近くなるように選曲してください
+- 合計再生時間が目標時間（${targetDurationMs}ms）に可能な限り近くなるように選曲してください${genreCondition}
 - 選んだ楽曲のIDのみをカンマ区切りで返してください（他の文字は一切含めないでください）
 - 例: track_id_1,track_id_2,track_id_3
 

@@ -92,11 +92,13 @@ declare global {
 
 export default function MusicPage() {
   const durationInputId = useId();
+  const genreInputId = useId();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tracks, setTracks] = useState<TracksData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPlaylistCreator, setShowPlaylistCreator] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState(30);
+  const [selectedGenre, setSelectedGenre] = useState<string>("");
   const [generatedPlaylist, setGeneratedPlaylist] = useState<Track[] | null>(
     null,
   );
@@ -306,7 +308,10 @@ export default function MusicPage() {
       const response = await fetch("/music/api/generate-playlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ durationMinutes }),
+        body: JSON.stringify({
+          durationMinutes,
+          genre: selectedGenre || undefined,
+        }),
       });
 
       if (!response.ok) {
@@ -612,29 +617,57 @@ export default function MusicPage() {
               </div>
             ) : (
               <>
-                <div className="rounded-md border p-4">
-                  <label
-                    htmlFor={durationInputId}
-                    className="block text-sm font-medium"
-                  >
-                    プレイリストの長さ（分）
-                  </label>
-                  <input
-                    id={durationInputId}
-                    type="number"
-                    min="5"
-                    max="180"
-                    value={durationMinutes}
-                    onChange={(e) =>
-                      setDurationMinutes(Number.parseInt(e.target.value, 10))
-                    }
-                    className="mt-2 w-full rounded-md border p-2"
-                  />
+                <div className="rounded-md border p-4 space-y-4">
+                  <div>
+                    <label
+                      htmlFor={durationInputId}
+                      className="block text-sm font-medium"
+                    >
+                      プレイリストの長さ（分）
+                    </label>
+                    <input
+                      id={durationInputId}
+                      type="number"
+                      min="5"
+                      max="180"
+                      value={durationMinutes}
+                      onChange={(e) =>
+                        setDurationMinutes(Number.parseInt(e.target.value, 10))
+                      }
+                      className="mt-2 w-full rounded-md border p-2"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor={genreInputId}
+                      className="block text-sm font-medium"
+                    >
+                      ジャンル（任意）
+                    </label>
+                    <select
+                      id={genreInputId}
+                      value={selectedGenre}
+                      onChange={(e) => setSelectedGenre(e.target.value)}
+                      className="mt-2 w-full rounded-md border p-2"
+                    >
+                      <option value="">すべて</option>
+                      <option value="ジャズ">ジャズ</option>
+                      <option value="J-POP">J-POP</option>
+                      <option value="アニソン">アニソン</option>
+                      <option value="ロック">ロック</option>
+                      <option value="クラシック">クラシック</option>
+                      <option value="EDM">EDM</option>
+                      <option value="ヒップホップ">ヒップホップ</option>
+                      <option value="R&B">R&B</option>
+                    </select>
+                  </div>
+
                   <button
                     type="button"
                     onClick={handleGeneratePlaylist}
                     disabled={playlistLoading}
-                    className="mt-3 w-full rounded-md bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:bg-gray-400"
+                    className="w-full rounded-md bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:bg-gray-400"
                   >
                     {playlistLoading ? "生成中..." : "プレイリストを生成"}
                   </button>
