@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { getTodos, type Todo } from "@/features/todos/api";
 import Frame from "../components/Frame";
 
 interface Track {
@@ -91,14 +92,18 @@ declare global {
 }
 
 export default function MusicPage() {
-  const durationInputId = useId();
   const genreInputId = useId();
+  const taskSelectId = useId();
+  const trackSourceId = useId();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tracks, setTracks] = useState<TracksData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPlaylistCreator, setShowPlaylistCreator] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [selectedGenre, setSelectedGenre] = useState<string>("");
+  const [selectedTaskId, setSelectedTaskId] = useState<string>("");
+  const [trackSource, setTrackSource] = useState<"user" | "spotify">("user");
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [generatedPlaylist, setGeneratedPlaylist] = useState<Track[] | null>(
     null,
   );
@@ -134,16 +139,28 @@ export default function MusicPage() {
     }
   }, []);
 
+  const fetchTodos = useCallback(async () => {
+    try {
+      const todosData = await getTodos();
+      // 未完了のタスクのみを取得
+      const incompleteTodos = todosData.filter((todo) => !todo.is_completed);
+      setTodos(incompleteTodos);
+    } catch (err) {
+      console.error("タスクの取得に失敗しました:", err);
+    }
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("authenticated") === "true") {
       setIsAuthenticated(true);
       fetchTracks();
+      fetchTodos();
     }
     if (params.get("error")) {
       setError(params.get("error"));
     }
-  }, [fetchTracks]);
+  }, [fetchTracks, fetchTodos]);
 
   // Spotify Web Playback SDKの初期化
   useEffect(() => {
@@ -298,6 +315,16 @@ export default function MusicPage() {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  const handleTaskSelect = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    if (taskId) {
+      const selectedTask = todos.find((todo) => todo.id === taskId);
+      if (selectedTask) {
+        setDurationMinutes(selectedTask.estimated_time);
+      }
+    }
+  };
+
   const handleGeneratePlaylist = async () => {
     setPlaylistLoading(true);
     setError(null);
@@ -311,6 +338,7 @@ export default function MusicPage() {
         body: JSON.stringify({
           durationMinutes,
           genre: selectedGenre || undefined,
+          trackSource,
         }),
       });
 
@@ -617,61 +645,129 @@ export default function MusicPage() {
               </div>
             ) : (
               <>
-                <div className="rounded-md border p-4 space-y-4">
-                  <div>
-                    <label
-                      htmlFor={durationInputId}
-                      className="block text-sm font-medium"
-                    >
-                      プレイリストの長さ（分）
-                    </label>
-                    <input
-                      id={durationInputId}
-                      type="number"
-                      min="5"
-                      max="180"
-                      value={durationMinutes}
-                      onChange={(e) =>
-                        setDurationMinutes(Number.parseInt(e.target.value, 10))
-                      }
-                      className="mt-2 w-full rounded-md border p-2"
-                    />
+                {todos.length === 0 ? (
+                  <div className="rounded-md border border-amber-500 bg-amber-50 p-4">
+                    <p className="text-sm text-amber-800 mb-2 font-semibold">
+                      タスクがありません
+                    </p>
+                    <p className="text-xs text-amber-700">
+                      プレイリストを作成するには、まずタスクを追加してください。タスクの所要時間に基づいてプレイリストが作成されます。
+                    </p>
                   </div>
+                ) : (
+                  <div className="rounded-md border p-4 space-y-4">
+                    <div>
+                      <label
+                        htmlFor={taskSelectId}
+                        className="block text-sm font-medium"
+                      >
+                        タスクを選択
+                      </label>
+                      <select
+                        id={taskSelectId}
+                        value={selectedTaskId}
+                        onChange={(e) => handleTaskSelect(e.target.value)}
+                        className="mt-2 w-full rounded-md border p-2"
+                      >
+                        <option value="">タスクを選択してください</option>
+                        {todos.map((todo) => (
+                          <option key={todo.id} value={todo.id}>
+                            {todo.title} ({todo.estimated_time}分)
+                          </option>
+                        ))}
+                      </select>
+                      {selectedTaskId && (
+                        <p className="mt-1 text-xs text-blue-600">
+                          ✓ プレイリストの長さ: {durationMinutes}分
+                        </p>
+                      )}
+                    </div>
 
-                  <div>
-                    <label
-                      htmlFor={genreInputId}
-                      className="block text-sm font-medium"
+                    <fieldset>
+                      <legend className="block text-sm font-medium mb-2">
+                        楽曲の選択元
+                      </legend>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            id={`${trackSourceId}-user`}
+                            name="trackSource"
+                            value="user"
+                            checked={trackSource === "user"}
+                            onChange={(e) =>
+                              setTrackSource(
+                                e.target.value as "user" | "spotify",
+                              )
+                            }
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm">
+                            マイライブラリ（お気に入り・よく聴く曲）
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            id={`${trackSourceId}-spotify`}
+                            name="trackSource"
+                            value="spotify"
+                            checked={trackSource === "spotify"}
+                            onChange={(e) =>
+                              setTrackSource(
+                                e.target.value as "user" | "spotify",
+                              )
+                            }
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm">
+                            Spotify全体（全楽曲からAIが選択）
+                          </span>
+                        </label>
+                      </div>
+                      {trackSource === "spotify" && selectedGenre === "" && (
+                        <p className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                          ⚠️
+                          ジャンルを指定しないと、AIが幅広い楽曲から選択します。好みに合わせてジャンルを選択することをおすすめします。
+                        </p>
+                      )}
+                    </fieldset>
+
+                    <div>
+                      <label
+                        htmlFor={genreInputId}
+                        className="block text-sm font-medium"
+                      >
+                        ジャンル（任意）
+                      </label>
+                      <select
+                        id={genreInputId}
+                        value={selectedGenre}
+                        onChange={(e) => setSelectedGenre(e.target.value)}
+                        className="mt-2 w-full rounded-md border p-2"
+                      >
+                        <option value="">すべて</option>
+                        <option value="ジャズ">ジャズ</option>
+                        <option value="J-POP">J-POP</option>
+                        <option value="アニソン">アニソン</option>
+                        <option value="ロック">ロック</option>
+                        <option value="クラシック">クラシック</option>
+                        <option value="EDM">EDM</option>
+                        <option value="ヒップホップ">ヒップホップ</option>
+                        <option value="R&B">R&B</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGeneratePlaylist}
+                      disabled={playlistLoading || !selectedTaskId}
+                      className="w-full rounded-md bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:bg-gray-400"
                     >
-                      ジャンル（任意）
-                    </label>
-                    <select
-                      id={genreInputId}
-                      value={selectedGenre}
-                      onChange={(e) => setSelectedGenre(e.target.value)}
-                      className="mt-2 w-full rounded-md border p-2"
-                    >
-                      <option value="">すべて</option>
-                      <option value="ジャズ">ジャズ</option>
-                      <option value="J-POP">J-POP</option>
-                      <option value="アニソン">アニソン</option>
-                      <option value="ロック">ロック</option>
-                      <option value="クラシック">クラシック</option>
-                      <option value="EDM">EDM</option>
-                      <option value="ヒップホップ">ヒップホップ</option>
-                      <option value="R&B">R&B</option>
-                    </select>
+                      {playlistLoading ? "生成中..." : "プレイリストを生成"}
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleGeneratePlaylist}
-                    disabled={playlistLoading}
-                    className="w-full rounded-md bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:bg-gray-400"
-                  >
-                    {playlistLoading ? "生成中..." : "プレイリストを生成"}
-                  </button>
-                </div>
+                )}
 
                 {generatedPlaylist && generatedPlaylist.length > 0 && (
                   <div className="space-y-3">

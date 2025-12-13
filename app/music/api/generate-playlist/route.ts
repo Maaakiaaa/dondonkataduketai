@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { durationMinutes, genre } = body;
+    const { durationMinutes, genre, trackSource = "user" } = body;
 
     if (!durationMinutes || durationMinutes <= 0) {
       return NextResponse.json({ error: "Invalid duration" }, { status: 400 });
@@ -37,6 +37,94 @@ export async function POST(request: NextRequest) {
       spotifyApi.setRefreshToken(refreshToken);
     }
 
+    const targetDurationMs = durationMinutes * 60 * 1000;
+
+    // Spotify全体から選択する場合
+    if (trackSource === "spotify") {
+      const genreCondition = genre ? `「${genre}」ジャンルの` : "";
+      const prompt = `Spotifyで聴ける${genreCondition}楽曲から、合計再生時間が約${durationMinutes}分になるプレイリストを作成してください。
+
+要件:
+- 合計再生時間が目標時間（約${durationMinutes}分）に可能な限り近くなるように選曲してください
+- 1曲あたり平均3〜4分と仮定して、適切な曲数を選んでください
+- 有名な楽曲や人気のある楽曲を中心に選んでください
+- 以下のJSON形式で返してください（他の文字は一切含めないでください）:
+[
+  {"name": "曲名", "artist": "アーティスト名"},
+  {"name": "曲名", "artist": "アーティスト名"}
+]
+
+回答:`;
+
+      console.log("Generating playlist from Spotify catalog with Gemini...");
+
+      const geminiModel = getGeminiModel();
+      const result = await geminiModel.generateContent(prompt);
+      const response = result.response;
+      const generatedText = response.text().trim();
+
+      console.log("Gemini response:", generatedText);
+
+      // JSONを抽出（マークダウンのコードブロックを除去）
+      const jsonMatch = generatedText.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error("AIからの応答が正しい形式ではありません");
+      }
+
+      const suggestions: { name: string; artist: string }[] = JSON.parse(
+        jsonMatch[0],
+      );
+
+      console.log("AI suggestions:", suggestions);
+
+      // 各楽曲をSpotifyで検索
+      const selectedTracks: Track[] = [];
+      for (const suggestion of suggestions) {
+        try {
+          const searchResult = await spotifyApi.searchTracks(
+            `track:${suggestion.name} artist:${suggestion.artist}`,
+            { limit: 1 },
+          );
+
+          if (
+            searchResult.body.tracks &&
+            searchResult.body.tracks.items.length > 0
+          ) {
+            const track = searchResult.body.tracks.items[0];
+            selectedTracks.push({
+              id: track.id,
+              name: track.name,
+              artists: track.artists.map(
+                (artist: SpotifyArtist) => artist.name,
+              ),
+              album: track.album.name,
+              duration_ms: track.duration_ms,
+              uri: track.uri,
+            });
+          }
+        } catch (error) {
+          console.error(
+            `Failed to search for ${suggestion.name} by ${suggestion.artist}:`,
+            error,
+          );
+        }
+      }
+
+      console.log("Found tracks count:", selectedTracks.length);
+
+      const totalDuration = selectedTracks.reduce(
+        (sum: number, track: Track) => sum + track.duration_ms,
+        0,
+      );
+
+      return NextResponse.json({
+        tracks: selectedTracks,
+        totalDuration,
+        targetDuration: targetDurationMs,
+      });
+    }
+
+    // ユーザーのライブラリから選択する場合（従来の処理）
     const savedTracks = await spotifyApi.getMySavedTracks({ limit: 50 });
     const topTracks = await spotifyApi.getMyTopTracks({ limit: 50 });
 
@@ -62,8 +150,6 @@ export async function POST(request: NextRequest) {
     const uniqueTracks = Array.from(
       new Map(allTracks.map((track) => [track.id, track])).values(),
     );
-
-    const targetDurationMs = durationMinutes * 60 * 1000;
 
     const genreCondition = genre
       ? `\n- ジャンルは「${genre}」に関連する楽曲を優先的に選んでください`
