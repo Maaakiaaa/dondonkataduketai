@@ -37,9 +37,18 @@ const calculateNextDate = (
 };
 
 export const getTodos = async () => {
+  // 現在のユーザーを取得
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("User not authenticated");
+
+  // 自分のタスクのみを取得
   const { data, error } = await supabase
     .from("todos")
     .select("*")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
