@@ -26,7 +26,7 @@ export default function Home() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        router.push("/login"); // ログインしてなかったら飛ばす
+        router.push("/demo/login"); // ログインしてなかったら飛ばす
         return;
       }
       setUser(session.user);
