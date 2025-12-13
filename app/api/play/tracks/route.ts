@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { getCurrentUser } from "@/lib/spotify";
+import { getAllUserMusicData } from "@/lib/spotify-api";
 import { authOptions } from "../../auth/[...nextauth]/route";
 
 export async function GET() {
@@ -11,12 +11,12 @@ export async function GET() {
   }
 
   try {
-    const user = await getCurrentUser(session.accessToken);
-    return NextResponse.json(user);
+    const musicData = await getAllUserMusicData(session.accessToken);
+    return NextResponse.json(musicData);
   } catch (error) {
-    console.error("Error fetching user data:", error);
+    console.error("Error fetching user music data:", error);
     return NextResponse.json(
-      { error: "Failed to fetch user data" },
+      { error: "Failed to fetch music data" },
       { status: 500 },
     );
   }
