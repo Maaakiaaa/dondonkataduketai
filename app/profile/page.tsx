@@ -10,8 +10,6 @@ import TaskPile, { type Task } from "./components/TaskPile";
 export default function ProfilePage() {
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [username, setUsername] = useState<string>("名前");
-  const [userId, setUserId] = useState<string>("user_id");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -27,12 +25,6 @@ export default function ProfilePage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-
-      // ユーザー名を取得
-      if (user.user_metadata?.username) {
-        setUsername(user.user_metadata.username);
-      }
-      setUserId(user.id);
 
       const { data } = await supabase
         .from("todos")
@@ -76,11 +68,9 @@ export default function ProfilePage() {
             )}
 
             <div className="pt-1">
-              <div className="text-2xl font-black tracking-wider">
-                {username}
-              </div>
+              <div className="text-2xl font-black tracking-wider">名前</div>
               <div className="text-sm font-bold text-zinc-500 mt-1">
-                @{userId.slice(0, 8)}
+                @user_id
               </div>
             </div>
           </div>
