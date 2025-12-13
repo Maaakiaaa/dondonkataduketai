@@ -3,7 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { signUp } from "../api";
+import { login, signUp } from "../api";
 
 export const SignUpForm = () => {
   const router = useRouter();
@@ -19,11 +19,42 @@ export const SignUpForm = () => {
     setLoading(true);
 
     try {
-      await signUp(email, password, username);
+      const res = await signUp(email, password, username);
+      console.log("signUp result:", res);
 
-      alert("登録成功！ようこそ！");
-      router.push("/");
-      router.refresh();
+      // If session is present, user is already logged in
+      if (res?.session) {
+        alert("登録成功！自動ログインしました。");
+        router.push("/");
+        return;
+      }
+
+      // If a user object exists but no session, try to sign in using credentials
+      if (res?.user) {
+        try {
+          const loginRes = await login(email, password);
+          console.log("login after signUp result:", loginRes);
+          if (loginRes?.session) {
+            alert("登録成功！自動ログインしました。");
+            router.push("/");
+            return;
+          }
+        } catch (err) {
+          // ignore and fallthrough to email-confirmation flow
+          console.warn("auto-login after signUp failed:", err);
+        }
+
+        // If we get here, registration succeeded but no active session
+        alert(
+          "登録は完了しました。確認メールを送信しました。メール確認後にログインしてください。",
+        );
+        router.push("/login");
+        return;
+      }
+
+      // Fallback
+      alert("登録処理が完了しました。ログインしてください。");
+      router.push("/login");
     } catch (e) {
       if (e instanceof Error) setErrorMsg(e.message);
     } finally {

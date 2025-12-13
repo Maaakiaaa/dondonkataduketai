@@ -75,7 +75,7 @@ export type Database = {
         Row: {
           created_at: string;
           due_at: string | null;
-          estimated_time: number | null;
+          estimated_time: number;
           id: string;
           is_completed: boolean;
           start_at: string | null;

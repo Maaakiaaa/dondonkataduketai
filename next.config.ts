@@ -1,8 +1,11 @@
+// next.config.ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  reactCompiler: true,
+  // Next.js 15以降はデフォルトで有効なので設定不要
+  // experimental: {
+  //   instrumentationHook: true,
+  // },
 };
 
 export default nextConfig;
