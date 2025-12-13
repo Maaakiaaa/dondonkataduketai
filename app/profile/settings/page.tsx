@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import { useEffect, useId, useState } from "react";
 import Frame from "../../components/Frame";
 import { supabase } from "../../lib/supabase";
@@ -12,12 +11,13 @@ export default function ProfileSettingsPage() {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toggleLoading, setToggleLoading] = useState(false);
+  const [username, setUsername] = useState("");
+  const [usernameLoading, setUsernameLoading] = useState(false);
 
   // 通知時間の設定
   const [morningTime, setMorningTime] = useState("07:00");
   const [eveningTime, setEveningTime] = useState("20:00");
 
-  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   // ユニークIDを生成
@@ -40,6 +40,11 @@ export default function ProfileSettingsPage() {
       if (!userData.user) {
         setLoading(false);
         return;
+      }
+
+      // ユーザー名を取得
+      if (userData.user.user_metadata?.username) {
+        setUsername(userData.user.user_metadata.username);
       }
 
       try {
@@ -240,6 +245,48 @@ export default function ProfileSettingsPage() {
     }
   };
 
+  /* ---------------- ユーザーネームの更新 ---------------- */
+  const updateUsername = async () => {
+    if (!username.trim()) {
+      alert("ユーザー名を入力してください");
+      return;
+    }
+
+    setUsernameLoading(true);
+    try {
+      // 現在のユーザーIDを取得
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("ユーザーが見つかりません");
+
+      // 1. auth.user_metadataを更新
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { username: username.trim() },
+      });
+
+      if (authError) throw authError;
+
+      // 2. profilesテーブルも更新
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ username: username.trim() })
+        .eq("id", user.id);
+
+      if (profileError) throw profileError;
+
+      alert("ユーザー名を更新しました");
+
+      // Frameコンポーネントに通知
+      window.dispatchEvent(new Event("usernameUpdated"));
+    } catch (error) {
+      console.error("ユーザー名更新エラー:", error);
+      alert("ユーザー名の更新に失敗しました");
+    } finally {
+      setUsernameLoading(false);
+    }
+  };
+
   /* ---------------- トグル ---------------- */
   const toggle = async () => {
     setToggleLoading(true);
@@ -262,9 +309,23 @@ export default function ProfileSettingsPage() {
     }
   };
 
-  /* ---------------- ダークモード切り替え ---------------- */
-  const toggleDarkMode = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+  /* ---------------- ログアウト ---------------- */
+  const handleLogout = async () => {
+    if (!confirm("ログアウトしますか？")) return;
+
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // localStorageをクリア
+      localStorage.removeItem("profileAvatar");
+
+      alert("ログアウトしました");
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("ログアウトエラー:", error);
+      alert("ログアウトに失敗しました");
+    }
   };
 
   if (loading || !mounted) {
@@ -274,98 +335,133 @@ export default function ProfileSettingsPage() {
   return (
     <Frame active="home">
       <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-6">
           <Link
             href="/profile"
-            className="text-sm text-zinc-600 dark:text-zinc-400"
+            className="inline-flex items-center gap-2 px-2 py-1 bg-white hover:bg-gray-50 text-black font-black text-sm rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none transition-all"
           >
-            ← 戻る
+            <span className="text-lg">←</span>
+            戻る
           </Link>
-          <div className="text-sm font-medium dark:text-white">設定</div>
-          <div />
         </div>
 
-        <div className="space-y-4">
-          {/* avatar */}
+        <div className="space-y-6">
+          {/* ユーザーネーム */}
           <div className="space-y-2">
-            <div className="text-sm font-medium dark:text-white">
-              プロフィール画像
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-16 h-16 rounded-full border-2 border-zinc-300 dark:border-zinc-700 flex items-center justify-center overflow-hidden bg-white dark:bg-zinc-800">
-                {preview ? (
-                  <Image
-                    src={preview}
-                    alt="preview"
-                    width={64}
-                    height={64}
-                    unoptimized
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-zinc-500 dark:text-zinc-400 text-sm">
-                    アイコン
-                  </div>
-                )}
-              </div>
-
+            <div className="text-sm font-black">ユーザー名</div>
+            <div className="flex gap-2">
               <input
-                type="file"
-                accept="image/*"
-                className="dark:text-white text-sm"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    const result = String(reader.result);
-                    setPreview(result);
-                    localStorage.setItem("profileAvatar", result);
-                  };
-                  reader.readAsDataURL(f);
-                }}
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="ユーザー名を入力"
+                className="flex-1 px-3 py-1.5 text-sm border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ECDC4] font-bold"
+                maxLength={20}
               />
+              <button
+                type="button"
+                onClick={updateUsername}
+                disabled={usernameLoading}
+                className="px-3 py-1.5 text-sm bg-[#4ECDC4] hover:bg-[#3dbdb4] text-white font-black rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none transition-all disabled:opacity-50"
+              >
+                {usernameLoading ? "更新中..." : "保存"}
+              </button>
+            </div>
+          </div>
+
+          {/* avatar */}
+          <div className="space-y-3">
+            <div className="text-sm font-black">プロフィール画像</div>
+            <div className="bg-white p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-full border-4 border-black flex items-center justify-center overflow-hidden bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                  {preview ? (
+                    <Image
+                      src={preview}
+                      alt="preview"
+                      width={80}
+                      height={80}
+                      unoptimized
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-gray-400 text-xs font-bold">
+                      アイコン
+                    </div>
+                  )}
+                </div>
+
+                <label className="flex-1 cursor-pointer">
+                  <div className="px-4 py-2 bg-[#FFE66D] hover:bg-[#ffd700] text-black font-black text-sm text-center rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none transition-all">
+                    画像を選択
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const result = String(reader.result);
+                        setPreview(result);
+                        localStorage.setItem("profileAvatar", result);
+                        // カスタムイベントを発火して他のコンポーネントに通知
+                        window.dispatchEvent(new Event("avatarUpdated"));
+                      };
+                      reader.readAsDataURL(f);
+                    }}
+                  />
+                </label>
+              </div>
             </div>
           </div>
 
           {/* 通知 */}
-          <label className="flex items-center justify-between dark:text-white">
-            <span>通知を有効にする</span>
-            <div className="flex items-center gap-2">
-              {toggleLoading && (
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  処理中...
-                </span>
-              )}
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={toggle}
-                disabled={toggleLoading}
-                className="cursor-pointer"
-              />
-            </div>
-          </label>
+          <div className="bg-white p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <label className="flex items-center justify-between">
+              <span className="font-black text-base">通知を有効にする</span>
+              <div className="flex items-center gap-2">
+                {toggleLoading && (
+                  <span className="text-sm text-gray-500 font-bold">
+                    処理中...
+                  </span>
+                )}
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={toggle}
+                  disabled={toggleLoading}
+                  className="w-5 h-5 cursor-pointer accent-[#4ECDC4]"
+                />
+              </div>
+            </label>
 
-          {enabled && (
-            <div className="text-xs text-green-600 dark:text-green-400">
-              ✅ 通知が有効です
-            </div>
-          )}
+            {enabled && (
+              <div className="mt-3 px-3 py-2 bg-[#4ECDC4]/10 rounded-lg border-2 border-[#4ECDC4]">
+                <span className="text-sm font-bold text-[#4ECDC4]">
+                  ✅ 通知が有効です
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* 通知時間設定 */}
           {enabled && (
-            <div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700">
-              <div className="text-sm font-medium dark:text-white">
+            <div className="bg-white p-5 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-4">
+              <div className="text-base font-black flex items-center gap-2">
+                <span className="text-xl">⏰</span>
                 通知時間
               </div>
 
               {/* 朝の通知 */}
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label
                   htmlFor={morningTimeId}
-                  className="text-xs text-zinc-600 dark:text-zinc-400"
+                  className="text-sm font-bold text-gray-700 flex items-center gap-2"
                 >
+                  <span className="text-lg">🌅</span>
                   朝の通知（今日のTODOを確認しよう！）
                 </label>
                 <input
@@ -373,16 +469,17 @@ export default function ProfileSettingsPage() {
                   type="time"
                   value={morningTime}
                   onChange={(e) => setMorningTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 text-black dark:text-white"
+                  className="w-full px-3 py-2 border-2 border-black rounded-lg bg-white font-bold text-base focus:outline-none focus:ring-2 focus:ring-[#FFE66D]"
                 />
               </div>
 
               {/* 夜の通知 */}
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label
                   htmlFor={eveningTimeId}
-                  className="text-xs text-zinc-600 dark:text-zinc-400"
+                  className="text-sm font-bold text-gray-700 flex items-center gap-2"
                 >
+                  <span className="text-lg">🌙</span>
                   夜の通知（今日のTODOは片付いたかな？）
                 </label>
                 <input
@@ -390,30 +487,31 @@ export default function ProfileSettingsPage() {
                   type="time"
                   value={eveningTime}
                   onChange={(e) => setEveningTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 text-black dark:text-white"
+                  className="w-full px-3 py-2 border-2 border-black rounded-lg bg-white font-bold text-base focus:outline-none focus:ring-2 focus:ring-[#FFE66D]"
                 />
               </div>
 
               <button
                 type="button"
                 onClick={updateNotificationTimes}
-                className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                className="w-full py-3 bg-[#4ECDC4] hover:bg-[#3dbdb4] text-white text-sm font-black rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none transition-all"
               >
                 時間を保存
               </button>
             </div>
           )}
 
-          {/* ダークモード */}
-          <label className="flex items-center justify-between dark:text-white">
-            <span>ダークモード</span>
-            <input
-              type="checkbox"
-              checked={theme === "dark"}
-              onChange={toggleDarkMode}
-              className="cursor-pointer"
-            />
-          </label>
+          {/* ログアウト */}
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full py-3 bg-[#FF6B6B] hover:bg-[#ff5252] text-white text-base font-black rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center justify-center gap-2"
+            >
+              <span className="text-xl">🚪</span>
+              ログアウト
+            </button>
+          </div>
         </div>
       </div>
     </Frame>
