@@ -2,7 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 // 型定義をインポート
-import type { Database } from "../types/database.supabase";
+import type { Database } from "../types/database.types";
 
 // 環境変数を読み込む
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

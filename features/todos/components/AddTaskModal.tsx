@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
-import { addTodo } from "@/features/todos/api";
+import { addTodo, type RecurrenceType } from "@/features/todos/api";
 
 export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
   // 入力ステート
@@ -12,11 +12,15 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
   // ユニークID生成
   const taskTitleId = useId();
   const estimatedId = useId();
+  const recurrenceId = useId();
 
   // 日時モード
   const [dateMode, setDateMode] = useState<"start" | "due">("start");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [endTimeDisplay, setEndTimeDisplay] = useState("");
+
+  // 繰り返し設定のステート
+  const [recurrence, setRecurrence] = useState<RecurrenceType>(null);
 
   // 初期値セット（次の00分）
   useEffect(() => {
@@ -57,6 +61,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
         estimated,
         dateMode === "start" ? new Date(selectedDate).toISOString() : undefined,
         dateMode === "due" ? new Date(selectedDate).toISOString() : undefined,
+        recurrence,
       );
 
       alert("保存しました！");
@@ -150,7 +155,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
         </div>
 
         {/* 日時設定 */}
-        <div className="mb-8 bg-[#F0F4F8] p-4 rounded-xl border-2 border-black">
+        <div className="mb-6 bg-[#F0F4F8] p-4 rounded-xl border-2 border-black">
           <div className="flex gap-2 mb-4 bg-white p-1 rounded-lg border-2 border-black">
             <button
               type="button"
@@ -190,6 +195,47 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
               終了予定:{" "}
               <span className="text-[#FF6B6B] text-lg">{endTimeDisplay}</span>
             </div>
+          )}
+        </div>
+
+        {/* 繰り返し設定 */}
+        <div className="mb-8">
+          <label
+            htmlFor={recurrenceId}
+            className="text-sm font-black block mb-2 flex items-center gap-2"
+          >
+            <span className="w-3 h-3 bg-[#A8DADC] rounded-full border border-black"></span>
+            繰り返し設定
+          </label>
+          <div className="relative">
+            <select
+              id={recurrenceId}
+              value={recurrence ?? ""}
+              onChange={(e) =>
+                setRecurrence((e.target.value as RecurrenceType) || null)
+              }
+              className="w-full p-3 bg-white border-2 border-black rounded-xl font-bold text-gray-700 appearance-none cursor-pointer hover:bg-gray-50 transition-all focus:outline-none focus:ring-2 focus:ring-[#FFD700]"
+            >
+              <option value="">繰り返しなし</option>
+              <option value="daily">毎日 🔄</option>
+              <option value="weekly">毎週 📅</option>
+              <option value="monthly">毎月 🗓️</option>
+            </select>
+            {/* 矢印アイコン（装飾） */}
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none font-black">
+              ▼
+            </div>
+          </div>
+          {recurrence && (
+            <p className="text-xs text-[#4ECDC4] mt-2 font-bold bg-[#4ECDC4]/10 p-2 rounded-lg border-2 border-[#4ECDC4] border-dashed">
+              ※ タスクを完了すると、自動で次の
+              {recurrence === "daily"
+                ? "日"
+                : recurrence === "weekly"
+                  ? "週"
+                  : "月"}
+              にタスクが作られます
+            </p>
           )}
         </div>
       </div>
