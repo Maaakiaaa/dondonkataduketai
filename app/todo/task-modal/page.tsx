@@ -2,11 +2,12 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
 import { AddTaskModal } from "@/features/todos/components/AddTaskModal";
 
-export default function TaskModalDemoPage() {
+// useSearchParams を使うコンポーネントを分離
+function TaskModalContent() {
   const router = useRouter();
   // モーダルの開閉状態を管理するステート
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,5 +94,13 @@ export default function TaskModalDemoPage() {
       */}
       {isModalOpen && <AddTaskModal onClose={closeModal} />}
     </main>
+  );
+}
+
+export default function TaskModalDemoPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center">読み込み中...</div>}>
+      <TaskModalContent />
+    </Suspense>
   );
 }
