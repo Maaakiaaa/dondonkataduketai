@@ -39,7 +39,7 @@ export const signUp = async (
     options: {
       data: {
         username: username,
-        avater_url: "",
+        avatar_url: "",
       },
     },
   });
