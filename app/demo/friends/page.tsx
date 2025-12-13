@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
 import {
   acceptFriendRequest,
+  getAchievementRate,
   getFriends,
   getPendingRequests,
   requestFriend,
@@ -15,12 +16,29 @@ export default function FriendsPage() {
   const [friends, setFriends] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [achievementRates, setAchievementRates] = useState<
+    Record<string, number>
+  >({});
 
   // データの再取得
   const fetchData = useCallback(async (userId: string) => {
     try {
       const f = await getFriends(userId);
       setFriends(f);
+
+      // 各フレンドの達成率を取得
+      const rates: Record<string, number> = {};
+      for (const friend of f) {
+        try {
+          const rate = await getAchievementRate(friend.profile.id);
+          rates[friend.profile.id] = rate;
+        } catch (e) {
+          console.error(`達成率取得失敗: ${friend.profile.id}`, e);
+          rates[friend.profile.id] = 0;
+        }
+      }
+      setAchievementRates(rates);
+
       const r = await getPendingRequests(userId);
       setRequests(r);
     } catch (e) {
@@ -154,11 +172,25 @@ export default function FriendsPage() {
                   <div className="w-full h-full bg-gray-300" />
                 )}
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="font-bold text-sm">{f.profile.username}</p>
                 <p className="text-xs text-gray-400">
                   ID: {f.profile.id.slice(0, 8)}...
                 </p>
+                {/* 達成率を表示 */}
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-green-500 h-2 rounded-full transition-all"
+                      style={{
+                        width: `${achievementRates[f.profile.id] ?? 0}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-600">
+                    {achievementRates[f.profile.id] ?? 0}%
+                  </span>
+                </div>
               </div>
             </li>
           ))}

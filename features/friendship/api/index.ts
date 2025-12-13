@@ -39,16 +39,25 @@ export const getFriends = async (myId: string) => {
   if (error) throw new Error(error.message);
 
   // B. データ整形： 「自分じゃない方」を「友達」としてリストにする
-  const formattedFriends = data.map((f) => {
-    // 自分が申請者(user_id)なら、相手はreceiver
-    if (f.user_id === myId) {
-      return { friendshipId: f.id, profile: f.receiver };
-    }
-    // 自分が受信者(friend_id)なら、相手はsender
-    else {
-      return { friendshipId: f.id, profile: f.sender };
-    }
-  });
+  const formattedFriends = data
+    .map((f) => {
+      // 自分が申請者(user_id)なら、相手はreceiver
+      if (f.user_id === myId) {
+        return f.receiver ? { friendshipId: f.id, profile: f.receiver } : null;
+      }
+      // 自分が受信者(friend_id)なら、相手はsender
+      else {
+        return f.sender ? { friendshipId: f.id, profile: f.sender } : null;
+      }
+    })
+    .filter(
+      (
+        f,
+      ): f is {
+        friendshipId: string;
+        profile: { id: string; username: string; avatar_url: string | null };
+      } => f !== null,
+    );
 
   return formattedFriends;
 };
@@ -66,4 +75,14 @@ export const getPendingRequests = async (myId: string) => {
 
   if (error) throw new Error(error.message);
   return data;
+};
+
+// 5. 指定ユーザーの達成率を取得する
+export const getAchievementRate = async (targetUserId: string) => {
+  const { data, error } = await supabase.rpc("get_achievement_rate", {
+    target_user_id: targetUserId,
+  });
+
+  if (error) throw new Error(error.message);
+  return data as number; // 0〜100の整数が返される
 };
