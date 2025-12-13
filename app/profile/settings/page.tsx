@@ -1,4 +1,3 @@
-// app/profile/settings/page.tsx
 "use client";
 
 import Image from "next/image";
@@ -62,12 +61,54 @@ export default function ProfileSettingsPage() {
     init();
   }, []);
 
+  /* ---------------- Service Worker登録 ---------------- */
+  const registerServiceWorker = async () => {
+    try {
+      if (!("serviceWorker" in navigator)) {
+        throw new Error("このブラウザはService Workerをサポートしていません");
+      }
+
+      console.log("📝 Service Workerを登録中...");
+
+      // 既に登録済みか確認
+      const existingRegistration =
+        await navigator.serviceWorker.getRegistration();
+      if (existingRegistration) {
+        console.log("✅ Service Workerは既に登録済み");
+        return existingRegistration;
+      }
+
+      // 新規登録
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      console.log("✅ Service Worker登録成功:", registration.scope);
+
+      // Service Workerがアクティブになるまで待機
+      if (registration.installing) {
+        console.log("⏳ Service Workerのインストールを待機中...");
+        await new Promise<void>((resolve) => {
+          const worker = registration.installing!;
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "activated") {
+              console.log("✅ Service Workerがアクティブになりました");
+              resolve();
+            }
+          });
+        });
+      }
+
+      return registration;
+    } catch (error) {
+      console.error("❌ Service Worker登録エラー:", error);
+      throw error;
+    }
+  };
+
   /* ---------------- 通知 OFF ---------------- */
   const disableNotification = async () => {
     try {
       if (!("serviceWorker" in navigator)) {
         console.error("Service Workerがサポートされていません");
-        return;
+        throw new Error("Service Workerがサポートされていません");
       }
 
       const registration = await navigator.serviceWorker.ready;
@@ -78,16 +119,20 @@ export default function ProfileSettingsPage() {
         return;
       }
 
-      await fetch("/api/push/unsubscribe", {
+      const res = await fetch("/api/push/unsubscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ endpoint: subscription.endpoint }),
       });
 
+      if (!res.ok) {
+        throw new Error("サブスクリプション削除APIエラー");
+      }
+
       await subscription.unsubscribe();
-      console.log("通知を無効にしました");
+      console.log("✅ 通知を無効にしました");
     } catch (error) {
-      console.error("通知の無効化エラー:", error);
+      console.error("❌ 通知の無効化エラー:", error);
       throw error;
     }
   };
@@ -95,40 +140,51 @@ export default function ProfileSettingsPage() {
   /* ---------------- 通知 ON ---------------- */
   const enableNotification = async () => {
     try {
+      console.log("🔔 通知有効化を開始...");
+
+      // 1. Service Workerを登録
+      await registerServiceWorker();
+
+      // 2. 通知許可チェック
       if (Notification.permission !== "granted") {
+        console.log("📢 通知許可をリクエスト中...");
         const p = await Notification.requestPermission();
         if (p !== "granted") {
-          alert("通知を許可してください");
-          return;
+          throw new Error("通知が許可されませんでした");
         }
+        console.log("✅ 通知が許可されました");
       }
 
-      if (!("serviceWorker" in navigator)) {
-        alert("このブラウザは通知をサポートしていません");
-        return;
-      }
-
-      const registration = await navigator.serviceWorker.ready;
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
-
+      // 3. VAPID公開鍵チェック
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidKey) {
-        console.error("VAPID公開鍵が設定されていません");
-        alert("通知の設定に失敗しました");
-        return;
+        throw new Error(
+          "VAPID公開鍵が設定されていません。.env.localを確認してください",
+        );
       }
+      console.log("✅ VAPID公開鍵を取得");
 
+      // 4. Service Worker準備完了待機
+      console.log("⏳ Service Workerの準備を待機中...");
+      const registration = await navigator.serviceWorker.ready;
+      console.log("✅ Service Worker準備完了");
+
+      // 5. プッシュサブスクリプション作成
+      console.log("📝 プッシュサブスクリプションを作成中...");
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
+      console.log("✅ サブスクリプション作成完了");
 
+      // 6. ユーザー情報取得
       const { data: userData } = await supabase.auth.getUser();
-
       if (!userData.user) {
-        alert("ログインしてください");
-        return;
+        throw new Error("ログインしてください");
       }
 
+      // 7. サーバーに保存
+      console.log("💾 サーバーに保存中...");
       const res = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: {
@@ -144,13 +200,13 @@ export default function ProfileSettingsPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error("API エラー:", errorData);
-        throw new Error("サブスクリプションの保存に失敗しました");
+        console.error("❌ API エラー:", errorData);
+        throw new Error(`サーバーエラー: ${errorData.error || "不明なエラー"}`);
       }
 
-      console.log("通知を有効にしました（テスト通知が送信されます）");
+      console.log("✅ 通知を有効にしました（テスト通知が送信されます）");
     } catch (error) {
-      console.error("通知の有効化エラー:", error);
+      console.error("❌ 通知の有効化エラー:", error);
       throw error;
     }
   };
@@ -175,9 +231,12 @@ export default function ProfileSettingsPage() {
 
       if (res.ok) {
         alert("通知時間を更新しました");
+      } else {
+        throw new Error("時間の更新に失敗しました");
       }
     } catch (error) {
       console.error("時間更新エラー:", error);
+      alert("時間の更新に失敗しました");
     }
   };
 
@@ -193,9 +252,11 @@ export default function ProfileSettingsPage() {
         await enableNotification();
         setEnabled(true);
       }
-    } catch (error) {
-      console.error("トグルエラー:", error);
-      alert("通知の切り替えに失敗しました");
+    } catch (error: any) {
+      console.error("❌ トグルエラー:", error);
+      alert(
+        `エラー: ${error.message || "通知の切り替えに失敗しました"}\n\nブラウザのコンソールを確認してください（F12キー）`,
+      );
     } finally {
       setToggleLoading(false);
     }
