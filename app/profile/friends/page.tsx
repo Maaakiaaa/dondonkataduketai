@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Frame from "@/app/components/Frame";
 import { supabase } from "@/app/lib/supabase";
 import {
   acceptFriendRequest,
@@ -88,114 +89,150 @@ export default function FriendsPage() {
   };
 
   return (
-    <main className="max-w-md mx-auto p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl font-bold mb-4">フレンド実験場</h1>
-
-      {/* 自分のID表示（コピー用） */}
-      <div className="bg-white p-4 rounded shadow mb-6">
-        <p className="text-sm text-gray-500">
-          あなたのID (これを相手に教えてね)
-        </p>
-        <code className="block bg-gray-100 p-2 mt-1 select-all text-xs break-all">
-          {myId}
-        </code>
-      </div>
-
-      {/* 申請フォーム */}
-      <div className="mb-8 border-b pb-6">
-        <h2 className="font-bold mb-2">フレンド申請を送る</h2>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            className="flex-1 border p-2 rounded text-sm"
-            placeholder="相手のIDをここに貼り付け"
-            value={targetId}
-            onChange={(e) => setTargetId(e.target.value)}
-          />
+    <Frame active="home">
+      <div className="space-y-8 pb-20">
+        {/* 自分のID表示（コピー用） */}
+        <div className="bg-[#FFE66D] p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden">
+          <div className="absolute -right-4 -top-4 w-16 h-16 bg-white rounded-full border-4 border-black opacity-20" />
+          <p className="font-black text-sm mb-2 flex items-center gap-2">
+            <span className="text-xl">🆔</span> あなたのID
+          </p>
           <button
             type="button"
-            onClick={handleRequest}
-            disabled={loading}
-            className="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
+            className="bg-white p-3 rounded-lg border-2 border-black font-mono text-xs break-all select-all cursor-pointer hover:bg-gray-50 transition-colors text-left w-full"
+            onClick={() => {
+              navigator.clipboard.writeText(myId);
+              alert("コピーしました！");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                navigator.clipboard.writeText(myId);
+                alert("コピーしました！");
+              }
+            }}
           >
-            申請
+            {myId}
           </button>
+          <p className="text-xs text-right mt-2 font-bold opacity-70">
+            ※タップしてコピーしてね
+          </p>
+        </div>
+
+        {/* 申請フォーム */}
+        <div className="bg-white p-5 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <h2 className="font-black text-lg mb-4 flex items-center gap-2">
+            <span className="text-2xl">💌</span> フレンド申請
+          </h2>
+          <div className="flex flex-col gap-3">
+            <input
+              type="text"
+              className="w-full border-2 border-black p-3 rounded-lg focus:outline-none focus:ring-4 focus:ring-[#4ECDC4]/30 font-bold transition-all"
+              placeholder="相手のIDをここに貼り付け"
+              value={targetId}
+              onChange={(e) => setTargetId(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={handleRequest}
+              disabled={loading}
+              className="w-full bg-[#4ECDC4] text-white font-black py-3 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3dbdb4]"
+            >
+              {loading ? "送信中..." : "申請を送る！"}
+            </button>
+          </div>
+        </div>
+
+        {/* 承認待ちリスト */}
+        {requests.length > 0 && (
+          <div className="bg-[#FF6B6B] p-5 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <h2 className="font-black text-lg mb-4 text-white flex items-center gap-2">
+              <span className="text-2xl">📬</span> 承認待ち ({requests.length})
+            </h2>
+            <ul className="space-y-3">
+              {requests.map((req) => (
+                <li
+                  key={req.id}
+                  className="bg-white p-3 rounded-lg border-2 border-black flex justify-between items-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  <span className="font-bold truncate mr-2">
+                    {req.sender.username}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleAccept(req.id)}
+                    className="bg-[#FFE66D] text-black px-4 py-1.5 rounded-md border-2 border-black font-black text-xs hover:bg-[#ffd700] active:translate-y-0.5 active:shadow-none shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all"
+                  >
+                    承認する
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* フレンドリスト */}
+        <div>
+          <h2 className="font-black text-xl mb-4 flex items-center gap-2 pl-2">
+            <span className="text-2xl">🤝</span> マブダチ
+            <span className="bg-black text-white text-sm px-2 py-0.5 rounded-full ml-1">
+              {friends.length}
+            </span>
+          </h2>
+
+          {friends.length === 0 ? (
+            <div className="text-center py-10 text-gray-400 font-bold border-4 border-dashed border-gray-300 rounded-xl bg-gray-50">
+              <p className="text-4xl mb-2">😢</p>
+              <p>まだ友達がいません...</p>
+            </div>
+          ) : (
+            <ul className="space-y-4">
+              {friends.map((f) => (
+                <li
+                  key={f.friendshipId}
+                  className="bg-white p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center gap-4 hover:translate-x-1 transition-transform"
+                >
+                  <div className="w-14 h-14 rounded-full border-2 border-black overflow-hidden bg-gray-100 shrink-0 shadow-sm">
+                    {f.profile.avatar_url ? (
+                      <img
+                        src={f.profile.avatar_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-[#4ECDC4] text-white font-black text-2xl">
+                        {f.profile.username?.[0] ?? "?"}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-lg leading-tight truncate mb-2">
+                      {f.profile.username}
+                    </p>
+
+                    {/* 達成率バー */}
+                    <div className="relative pt-1">
+                      <div className="flex justify-between text-xs font-bold mb-1 text-gray-600">
+                        <span>達成率</span>
+                        <span>{achievementRates[f.profile.id] ?? 0}%</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-4 border-2 border-black overflow-hidden relative">
+                        <div
+                          className="bg-[#4ECDC4] h-full transition-all duration-500 ease-out border-r-2 border-black"
+                          style={{
+                            width: `${achievementRates[f.profile.id] ?? 0}%`,
+                          }}
+                        />
+                        {/* ストライプ模様のオーバーレイ */}
+                        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.3)_25%,rgba(255,255,255,0.3)_50%,transparent_50%,transparent_75%,rgba(255,255,255,0.3)_75%,rgba(255,255,255,0.3)_100%)] bg-[length:10px_10px] opacity-50" />
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
-
-      {/* 承認待ちリスト */}
-      <div className="mb-8">
-        <h2 className="font-bold mb-2 text-orange-600">
-          承認待ち ({requests.length})
-        </h2>
-        {requests.length === 0 && (
-          <p className="text-sm text-gray-400">届いていません</p>
-        )}
-        <ul className="space-y-2">
-          {requests.map((req) => (
-            <li
-              key={req.id}
-              className="bg-orange-50 p-3 rounded flex justify-between items-center"
-            >
-              <span className="font-bold">{req.sender.username}</span>
-              <button
-                type="button"
-                onClick={() => handleAccept(req.id)}
-                className="bg-orange-500 text-white px-3 py-1 rounded text-xs"
-              >
-                承認する
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* フレンドリスト */}
-      <div>
-        <h2 className="font-bold mb-2 text-green-600">
-          マブダチ ({friends.length})
-        </h2>
-        {friends.length === 0 && (
-          <p className="text-sm text-gray-400">友達がいません...</p>
-        )}
-        <ul className="space-y-2">
-          {friends.map((f) => (
-            <li
-              key={f.friendshipId}
-              className="bg-white p-3 rounded shadow-sm flex items-center gap-3"
-            >
-              <div className="w-8 h-8 bg-gray-200 rounded-full overflow-hidden">
-                {/* アイコンがあれば表示、なければグレー */}
-                {f.profile.avatar_url ? (
-                  <img src={f.profile.avatar_url} alt="" />
-                ) : (
-                  <div className="w-full h-full bg-gray-300" />
-                )}
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-sm">{f.profile.username}</p>
-                <p className="text-xs text-gray-400">
-                  ID: {f.profile.id.slice(0, 8)}...
-                </p>
-                {/* 達成率を表示 */}
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="flex-1 bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-green-500 h-2 rounded-full transition-all"
-                      style={{
-                        width: `${achievementRates[f.profile.id] ?? 0}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs font-semibold text-gray-600">
-                    {achievementRates[f.profile.id] ?? 0}%
-                  </span>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </main>
+    </Frame>
   );
 }
