@@ -92,7 +92,7 @@ export default function Home() {
       <div className="mb-6">
         <button
           type="button"
-          onClick={() => router.push("/demo/task-modal")}
+          onClick={() => router.push("/todo/task-modal?open=1")}
           className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
         >
           タスク追加

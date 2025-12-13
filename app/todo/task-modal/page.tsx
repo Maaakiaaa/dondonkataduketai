@@ -1,7 +1,7 @@
 // app/demo/task-modal/page.tsx
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
 import { AddTaskModal } from "@/features/todos/components/AddTaskModal";
@@ -30,7 +30,18 @@ export default function TaskModalDemoPage() {
   const openModal = () => setIsModalOpen(true);
 
   // モーダルを閉じる関数（AddTaskModalのonCloseに渡す）
-  const closeModal = () => setIsModalOpen(false);
+  const closeModal = () => {
+    setIsModalOpen(false);
+    router.replace("/todo");
+  };
+
+  // URL クエリで open=1 がある場合、ページ読み込み時にモーダルを自動で開く
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams?.get("open") === "1") {
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
 
   if (checkingAuth) {
     return <div className="p-10 text-center">認証確認中...</div>;
