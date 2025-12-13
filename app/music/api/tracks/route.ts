@@ -1,5 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import spotifyApi from "../../lib/spotify";
+import type {
+  SpotifyArtist,
+  SpotifySavedTrackItem,
+  SpotifyTrack,
+} from "../../lib/types";
 
 export async function GET(request: NextRequest) {
   const accessToken = request.cookies.get("spotify_access_token")?.value;
@@ -19,18 +24,18 @@ export async function GET(request: NextRequest) {
     const topTracks = await spotifyApi.getMyTopTracks({ limit: 50 });
 
     const tracks = {
-      saved: savedTracks.body.items.map((item: any) => ({
+      saved: savedTracks.body.items.map((item: SpotifySavedTrackItem) => ({
         id: item.track.id,
         name: item.track.name,
-        artists: item.track.artists.map((artist: any) => artist.name),
+        artists: item.track.artists.map((artist: SpotifyArtist) => artist.name),
         album: item.track.album.name,
         duration_ms: item.track.duration_ms,
         uri: item.track.uri,
       })),
-      top: topTracks.body.items.map((track: any) => ({
+      top: topTracks.body.items.map((track: SpotifyTrack) => ({
         id: track.id,
         name: track.name,
-        artists: track.artists.map((artist: any) => artist.name),
+        artists: track.artists.map((artist: SpotifyArtist) => artist.name),
         album: track.album.name,
         duration_ms: track.duration_ms,
         uri: track.uri,
@@ -58,18 +63,24 @@ export async function GET(request: NextRequest) {
           const topTracks = await spotifyApi.getMyTopTracks({ limit: 50 });
 
           const tracks = {
-            saved: savedTracks.body.items.map((item: any) => ({
-              id: item.track.id,
-              name: item.track.name,
-              artists: item.track.artists.map((artist: any) => artist.name),
-              album: item.track.album.name,
-              duration_ms: item.track.duration_ms,
-              uri: item.track.uri,
-            })),
-            top: topTracks.body.items.map((track: any) => ({
+            saved: savedTracks.body.items.map(
+              (item: SpotifySavedTrackItem) => ({
+                id: item.track.id,
+                name: item.track.name,
+                artists: item.track.artists.map(
+                  (artist: SpotifyArtist) => artist.name,
+                ),
+                album: item.track.album.name,
+                duration_ms: item.track.duration_ms,
+                uri: item.track.uri,
+              }),
+            ),
+            top: topTracks.body.items.map((track: SpotifyTrack) => ({
               id: track.id,
               name: track.name,
-              artists: track.artists.map((artist: any) => artist.name),
+              artists: track.artists.map(
+                (artist: SpotifyArtist) => artist.name,
+              ),
               album: track.album.name,
               duration_ms: track.duration_ms,
               uri: track.uri,
