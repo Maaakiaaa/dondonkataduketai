@@ -92,7 +92,6 @@ declare global {
 }
 
 export default function MusicPage() {
-  const durationInputId = useId();
   const genreInputId = useId();
   const taskSelectId = useId();
   const trackSourceId = useId();
@@ -646,134 +645,129 @@ export default function MusicPage() {
               </div>
             ) : (
               <>
-                <div className="rounded-md border p-4 space-y-4">
-                  <div>
-                    <label
-                      htmlFor={taskSelectId}
-                      className="block text-sm font-medium"
-                    >
-                      タスクを選択（任意）
-                    </label>
-                    <select
-                      id={taskSelectId}
-                      value={selectedTaskId}
-                      onChange={(e) => handleTaskSelect(e.target.value)}
-                      className="mt-2 w-full rounded-md border p-2"
-                    >
-                      <option value="">タスクなし（手動入力）</option>
-                      {todos.map((todo) => (
-                        <option key={todo.id} value={todo.id}>
-                          {todo.title} ({todo.estimated_time}分)
-                        </option>
-                      ))}
-                    </select>
-                    {selectedTaskId && (
-                      <p className="mt-1 text-xs text-blue-600">
-                        ✓ タスクの所要時間が自動的に設定されました
-                      </p>
-                    )}
+                {todos.length === 0 ? (
+                  <div className="rounded-md border border-amber-500 bg-amber-50 p-4">
+                    <p className="text-sm text-amber-800 mb-2 font-semibold">
+                      タスクがありません
+                    </p>
+                    <p className="text-xs text-amber-700">
+                      プレイリストを作成するには、まずタスクを追加してください。タスクの所要時間に基づいてプレイリストが作成されます。
+                    </p>
                   </div>
-
-                  <fieldset>
-                    <legend className="block text-sm font-medium mb-2">
-                      楽曲の選択元
-                    </legend>
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          id={`${trackSourceId}-user`}
-                          name="trackSource"
-                          value="user"
-                          checked={trackSource === "user"}
-                          onChange={(e) =>
-                            setTrackSource(e.target.value as "user" | "spotify")
-                          }
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm">
-                          マイライブラリ（お気に入り・よく聴く曲）
-                        </span>
+                ) : (
+                  <div className="rounded-md border p-4 space-y-4">
+                    <div>
+                      <label
+                        htmlFor={taskSelectId}
+                        className="block text-sm font-medium"
+                      >
+                        タスクを選択
                       </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          id={`${trackSourceId}-spotify`}
-                          name="trackSource"
-                          value="spotify"
-                          checked={trackSource === "spotify"}
-                          onChange={(e) =>
-                            setTrackSource(e.target.value as "user" | "spotify")
-                          }
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm">
-                          Spotify全体（全楽曲からAIが選択）
-                        </span>
-                      </label>
+                      <select
+                        id={taskSelectId}
+                        value={selectedTaskId}
+                        onChange={(e) => handleTaskSelect(e.target.value)}
+                        className="mt-2 w-full rounded-md border p-2"
+                      >
+                        <option value="">タスクを選択してください</option>
+                        {todos.map((todo) => (
+                          <option key={todo.id} value={todo.id}>
+                            {todo.title} ({todo.estimated_time}分)
+                          </option>
+                        ))}
+                      </select>
+                      {selectedTaskId && (
+                        <p className="mt-1 text-xs text-blue-600">
+                          ✓ プレイリストの長さ: {durationMinutes}分
+                        </p>
+                      )}
                     </div>
-                    {trackSource === "spotify" && selectedGenre === "" && (
-                      <p className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-                        ⚠️
-                        ジャンルを指定しないと、AIが幅広い楽曲から選択します。好みに合わせてジャンルを選択することをおすすめします。
-                      </p>
-                    )}
-                  </fieldset>
 
-                  <div>
-                    <label
-                      htmlFor={durationInputId}
-                      className="block text-sm font-medium"
+                    <fieldset>
+                      <legend className="block text-sm font-medium mb-2">
+                        楽曲の選択元
+                      </legend>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            id={`${trackSourceId}-user`}
+                            name="trackSource"
+                            value="user"
+                            checked={trackSource === "user"}
+                            onChange={(e) =>
+                              setTrackSource(
+                                e.target.value as "user" | "spotify",
+                              )
+                            }
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm">
+                            マイライブラリ（お気に入り・よく聴く曲）
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            id={`${trackSourceId}-spotify`}
+                            name="trackSource"
+                            value="spotify"
+                            checked={trackSource === "spotify"}
+                            onChange={(e) =>
+                              setTrackSource(
+                                e.target.value as "user" | "spotify",
+                              )
+                            }
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm">
+                            Spotify全体（全楽曲からAIが選択）
+                          </span>
+                        </label>
+                      </div>
+                      {trackSource === "spotify" && selectedGenre === "" && (
+                        <p className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                          ⚠️
+                          ジャンルを指定しないと、AIが幅広い楽曲から選択します。好みに合わせてジャンルを選択することをおすすめします。
+                        </p>
+                      )}
+                    </fieldset>
+
+                    <div>
+                      <label
+                        htmlFor={genreInputId}
+                        className="block text-sm font-medium"
+                      >
+                        ジャンル（任意）
+                      </label>
+                      <select
+                        id={genreInputId}
+                        value={selectedGenre}
+                        onChange={(e) => setSelectedGenre(e.target.value)}
+                        className="mt-2 w-full rounded-md border p-2"
+                      >
+                        <option value="">すべて</option>
+                        <option value="ジャズ">ジャズ</option>
+                        <option value="J-POP">J-POP</option>
+                        <option value="アニソン">アニソン</option>
+                        <option value="ロック">ロック</option>
+                        <option value="クラシック">クラシック</option>
+                        <option value="EDM">EDM</option>
+                        <option value="ヒップホップ">ヒップホップ</option>
+                        <option value="R&B">R&B</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGeneratePlaylist}
+                      disabled={playlistLoading || !selectedTaskId}
+                      className="w-full rounded-md bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:bg-gray-400"
                     >
-                      プレイリストの長さ（分）
-                    </label>
-                    <input
-                      id={durationInputId}
-                      type="number"
-                      min="5"
-                      max="180"
-                      value={durationMinutes}
-                      onChange={(e) =>
-                        setDurationMinutes(Number.parseInt(e.target.value, 10))
-                      }
-                      className="mt-2 w-full rounded-md border p-2"
-                    />
+                      {playlistLoading ? "生成中..." : "プレイリストを生成"}
+                    </button>
                   </div>
-
-                  <div>
-                    <label
-                      htmlFor={genreInputId}
-                      className="block text-sm font-medium"
-                    >
-                      ジャンル（任意）
-                    </label>
-                    <select
-                      id={genreInputId}
-                      value={selectedGenre}
-                      onChange={(e) => setSelectedGenre(e.target.value)}
-                      className="mt-2 w-full rounded-md border p-2"
-                    >
-                      <option value="">すべて</option>
-                      <option value="ジャズ">ジャズ</option>
-                      <option value="J-POP">J-POP</option>
-                      <option value="アニソン">アニソン</option>
-                      <option value="ロック">ロック</option>
-                      <option value="クラシック">クラシック</option>
-                      <option value="EDM">EDM</option>
-                      <option value="ヒップホップ">ヒップホップ</option>
-                      <option value="R&B">R&B</option>
-                    </select>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleGeneratePlaylist}
-                    disabled={playlistLoading}
-                    className="w-full rounded-md bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:bg-gray-400"
-                  >
-                    {playlistLoading ? "生成中..." : "プレイリストを生成"}
-                  </button>
-                </div>
+                )}
 
                 {generatedPlaylist && generatedPlaylist.length > 0 && (
                   <div className="space-y-3">
