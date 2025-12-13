@@ -96,6 +96,7 @@ function DraggableTask({
             className={`flex-shrink-0 cursor-grab active:cursor-grabbing p-1 rounded ${
               isUrgent ? "hover:bg-white/20" : "hover:bg-gray-100"
             }`}
+            style={{ touchAction: "none" }}
           >
             <svg
               className={`w-4 h-4 ${isUrgent ? "text-white/70" : "text-gray-400"}`}
