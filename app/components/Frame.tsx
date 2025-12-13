@@ -33,7 +33,7 @@ export default function Frame({ children, active = "home" }: Props) {
           </div>
           <Link href="/profile" aria-label="プロフィール設定へ">
             <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white">
-              ぎ
+              あ
             </div>
           </Link>
         </header>
@@ -53,23 +53,7 @@ export default function Frame({ children, active = "home" }: Props) {
               onKeyDown={(e) => {
                 if (e.key === "Escape") setMenuOpen(false);
               }}
-            >
-              <div className="w-[84%] h-[64%] max-h-[86%] rounded-md border border-zinc-400 bg-white px-6 py-3 overflow-auto">
-                <div className="h-full flex flex-col items-center justify-center text-center text-sm text-zinc-800">
-                  <div className="space-y-3">
-                    <div>フレンド</div>
-                    <div>TODO</div>
-                    <div>プロフィール</div>
-                    <div>ミュージック</div>
-                    <div>ログアウト</div>
-                  </div>
-
-                  <div className="mt-6 text-[12px] text-zinc-500">
-                    ＊それっぽい雰囲気
-                  </div>
-                </div>
-              </div>
-            </div>
+            ></div>
           )}
         </main>
 

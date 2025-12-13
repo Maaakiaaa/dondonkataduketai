@@ -45,7 +45,7 @@ export default function ProfilePage() {
           </div>
 
           <Link href="/profile/settings" aria-label="設定" className="p-2">
-            <Image src="/setting.webp" alt="設定" width={35} height={35} />
+            <Image src="/setting.webp" alt="設定" width={22} height={22} />
           </Link>
         </div>
 
