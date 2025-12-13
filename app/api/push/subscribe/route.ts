@@ -11,7 +11,7 @@ const supabase = createClient(
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { subscription, userId } = body;
+    const { subscription, userId, morningTime, eveningTime } = body;
 
     if (!userId) {
       return NextResponse.json({ error: "userIdが必要です" }, { status: 400 });
@@ -22,12 +22,14 @@ export async function POST(req: Request) {
       keys: { p256dh, auth },
     } = subscription;
 
-    // DB保存（重複は無視）
+    // DB保存（通知時間も一緒に保存）
     const { error } = await supabase.from("push_subscriptions").upsert({
       user_id: userId,
       endpoint,
       p256dh,
       auth,
+      morning_time: morningTime || "07:00",
+      evening_time: eveningTime || "20:00",
     });
 
     if (error) {
@@ -47,14 +49,13 @@ export async function POST(req: Request) {
         },
         JSON.stringify({
           title: "通知を有効にしました 🎉",
-          body: "タスクの期限が近づくとお知らせします",
+          body: "タスクの時間になるとお知らせします",
           icon: "/icon.png",
         }),
       );
       console.log("テスト通知送信成功");
     } catch (pushError) {
       console.error("テスト通知送信エラー:", pushError);
-      // 通知送信失敗してもサブスクリプション登録は成功とする
     }
 
     return NextResponse.json({ ok: true });

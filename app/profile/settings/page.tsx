@@ -3,8 +3,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useTheme } from "next-themes"; // ← 追加
-import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
+import { useEffect, useId, useState } from "react";
 import Frame from "../../components/Frame";
 import { supabase } from "../../lib/supabase";
 
@@ -14,14 +14,20 @@ export default function ProfileSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [toggleLoading, setToggleLoading] = useState(false);
 
-  // ← ここから追加
+  // 通知時間の設定
+  const [morningTime, setMorningTime] = useState("07:00");
+  const [eveningTime, setEveningTime] = useState("20:00");
+
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+
+  // ユニークIDを生成
+  const morningTimeId = useId();
+  const eveningTimeId = useId();
 
   useEffect(() => {
     setMounted(true);
   }, []);
-  // ここまで追加 ↑
 
   /* ---------------- 初期ロード ---------------- */
   useEffect(() => {
@@ -42,6 +48,9 @@ export default function ProfileSettingsPage() {
         if (res.ok) {
           const json = await res.json();
           setEnabled(json.enabled);
+          // 保存された通知時間を取得
+          if (json.morningTime) setMorningTime(json.morningTime);
+          if (json.eveningTime) setEveningTime(json.eveningTime);
         }
       } catch (error) {
         console.error("通知状態の取得エラー:", error);
@@ -128,6 +137,8 @@ export default function ProfileSettingsPage() {
         body: JSON.stringify({
           subscription,
           userId: userData.user.id,
+          morningTime,
+          eveningTime,
         }),
       });
 
@@ -141,6 +152,32 @@ export default function ProfileSettingsPage() {
     } catch (error) {
       console.error("通知の有効化エラー:", error);
       throw error;
+    }
+  };
+
+  /* ---------------- 通知時間の更新 ---------------- */
+  const updateNotificationTimes = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const res = await fetch("/api/push/update-times", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userData.user.id,
+          morningTime,
+          eveningTime,
+        }),
+      });
+
+      if (res.ok) {
+        alert("通知時間を更新しました");
+      }
+    } catch (error) {
+      console.error("時間更新エラー:", error);
     }
   };
 
@@ -169,7 +206,6 @@ export default function ProfileSettingsPage() {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
-  // ← 修正: mounted も確認
   if (loading || !mounted) {
     return <Frame active="home">読み込み中...</Frame>;
   }
@@ -178,20 +214,25 @@ export default function ProfileSettingsPage() {
     <Frame active="home">
       <div className="p-4">
         <div className="flex items-center justify-between mb-4">
-          <Link href="/profile" className="text-sm text-zinc-600">
+          <Link
+            href="/profile"
+            className="text-sm text-zinc-600 dark:text-zinc-400"
+          >
             ← 戻る
           </Link>
-          <div className="text-sm font-medium">設定</div>
+          <div className="text-sm font-medium dark:text-white">設定</div>
           <div />
         </div>
 
         <div className="space-y-4">
+          {/* avatar */}
           <div className="space-y-2">
-            <div className="text-sm font-medium">プロフィール画像</div>
+            <div className="text-sm font-medium dark:text-white">
+              プロフィール画像
+            </div>
             <div className="flex items-center gap-3">
-              <div className="w-16 h-16 rounded-full border-2 border-zinc-300 flex items-center justify-center overflow-hidden bg-white">
+              <div className="w-16 h-16 rounded-full border-2 border-zinc-300 dark:border-zinc-700 flex items-center justify-center overflow-hidden bg-white dark:bg-zinc-800">
                 {preview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <Image
                     src={preview}
                     alt="preview"
@@ -201,7 +242,7 @@ export default function ProfileSettingsPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="text-zinc-500 dark:text-zinc-400 text-sm flex items-center justify-center h-full">
+                  <div className="text-zinc-500 dark:text-zinc-400 text-sm">
                     アイコン
                   </div>
                 )}
@@ -210,7 +251,7 @@ export default function ProfileSettingsPage() {
               <input
                 type="file"
                 accept="image/*"
-                className="dark:text-white"
+                className="dark:text-white text-sm"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (!f) return;
@@ -245,10 +286,60 @@ export default function ProfileSettingsPage() {
             </div>
           </label>
 
-          {/* 通知の状態表示 */}
           {enabled && (
             <div className="text-xs text-green-600 dark:text-green-400">
               ✅ 通知が有効です
+            </div>
+          )}
+
+          {/* 通知時間設定 */}
+          {enabled && (
+            <div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700">
+              <div className="text-sm font-medium dark:text-white">
+                通知時間
+              </div>
+
+              {/* 朝の通知 */}
+              <div className="space-y-1">
+                <label
+                  htmlFor={morningTimeId}
+                  className="text-xs text-zinc-600 dark:text-zinc-400"
+                >
+                  朝の通知（今日のTODOを確認しよう！）
+                </label>
+                <input
+                  id={morningTimeId}
+                  type="time"
+                  value={morningTime}
+                  onChange={(e) => setMorningTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 text-black dark:text-white"
+                />
+              </div>
+
+              {/* 夜の通知 */}
+              <div className="space-y-1">
+                <label
+                  htmlFor={eveningTimeId}
+                  className="text-xs text-zinc-600 dark:text-zinc-400"
+                >
+                  夜の通知（今日のTODOは片付いたかな？）
+                </label>
+                <input
+                  id={eveningTimeId}
+                  type="time"
+                  value={eveningTime}
+                  onChange={(e) => setEveningTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 text-black dark:text-white"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={updateNotificationTimes}
+                className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+              >
+                時間を保存
+              </button>
             </div>
           )}
 
@@ -268,7 +359,6 @@ export default function ProfileSettingsPage() {
   );
 }
 
-/* -------- util -------- */
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
