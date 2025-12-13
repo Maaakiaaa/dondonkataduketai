@@ -67,137 +67,130 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl overflow-y-auto max-h-[90vh]">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div className="bg-white rounded-[2rem] w-full max-w-md p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] border-4 border-black overflow-y-auto max-h-[90vh] relative [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        {/* 装飾的な背景要素 */}
+        <div className="absolute top-0 left-0 w-full h-4 bg-[#FFD700] border-b-4 border-black" />
+
         {/* ヘッダー */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-8 mt-4">
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-500 font-bold"
+            className="text-gray-500 font-black hover:text-black transition-colors"
           >
             キャンセル
           </button>
-          <h2 className="font-bold text-lg">タスク追加</h2>
+          <h2 className="font-black text-2xl tracking-wider">タスク追加</h2>
           <button
             type="button"
             onClick={handleSave}
-            className="text-blue-600 font-bold"
+            className="bg-[#4ECDC4] text-white font-black px-4 py-2 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all"
           >
-            保存する
+            保存
           </button>
         </div>
+
         {/* タスク名 */}
         <div className="mb-6">
           <label
             htmlFor={taskTitleId}
-            className="text-xs text-gray-400 font-bold block mb-1"
+            className="text-sm font-black block mb-2 flex items-center gap-2"
           >
+            <span className="w-3 h-3 bg-[#FF6B6B] rounded-full border border-black"></span>
             タスク名
           </label>
           <input
             id={taskTitleId}
             type="text"
-            className="w-full text-xl font-bold placeholder-gray-300 outline-none border-b border-transparent focus:border-blue-500 transition"
-            placeholder="例: プレゼン資料作成"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            placeholder="例: 部屋の掃除"
+            className="w-full text-xl font-bold border-2 border-black rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#FFD700] focus:border-black transition-all placeholder-gray-300"
           />
         </div>
 
-        {/* 所要時間スライダー */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <label
-              htmlFor={estimatedId}
-              className="text-xs text-gray-400 font-bold"
-            >
-              ⏳ 所要時間 (見積もり)
-            </label>
-            <span className="text-xs text-gray-300">平均的な作業時間</span>
-          </div>
-
-          <div className="bg-white border rounded-xl p-4 shadow-sm">
-            <div className="text-center mb-4">
-              <span className="text-4xl font-bold text-blue-600">
-                {estimated}
-              </span>
-              <span className="text-sm text-gray-400 ml-1">分</span>
-            </div>
-
+        {/* 所要時間 */}
+        <div className="mb-6">
+          <label
+            htmlFor={estimatedId}
+            className="text-sm font-black block mb-2 flex items-center gap-2"
+          >
+            <span className="w-3 h-3 bg-[#FFE66D] rounded-full border border-black"></span>
+            所要時間（分）
+          </label>
+          <div className="flex items-center gap-4">
             <input
+              id={estimatedId}
               type="range"
-              min="15"
+              min="5"
               max="180"
-              step="15"
+              step="5"
               value={estimated}
               onChange={(e) => setEstimated(Number(e.target.value))}
-              className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              className="flex-1 h-4 bg-gray-200 rounded-full appearance-none border-2 border-black [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-[#FF9F1C] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-black [&::-webkit-slider-thumb]:cursor-pointer"
+              aria-valuemin={5}
+              aria-valuemax={180}
+              aria-valuenow={estimated}
+              aria-valuetext={`${estimated}分`}
             />
-
-            <div className="flex justify-between mt-4 gap-2">
-              {[15, 30, 60, 120].map((mins) => (
-                <button
-                  type="button"
-                  key={mins}
-                  onClick={() => setEstimated(mins)}
-                  className="flex-1 py-1 rounded-md text-xs font-bold bg-gray-50 text-gray-600 hover:bg-gray-100 border"
-                >
-                  {mins >= 60 ? `${mins / 60}時間` : `${mins}分`}
-                </button>
-              ))}
-            </div>
+            <span className="text-xl font-black w-20 text-right">
+              {estimated}分
+            </span>
+          </div>
+          <div className="flex justify-between text-xs font-bold text-gray-400 mt-1 px-1">
+            <span>5分</span>
+            <span>3時間</span>
           </div>
         </div>
 
         {/* 日時設定 */}
-        <div className="mb-4">
-          <label
-            htmlFor="dateMode"
-            className="text-xs text-gray-400 font-bold block mb-2"
-          >
-            いつやりますか？
-          </label>
-
-          <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
+        <div className="mb-8 bg-[#F0F4F8] p-4 rounded-xl border-2 border-black">
+          <div className="flex gap-2 mb-4 bg-white p-1 rounded-lg border-2 border-black">
             <button
               type="button"
               onClick={() => setDateMode("start")}
-              className={`flex-1 py-2 rounded-md text-sm font-bold transition flex items-center justify-center gap-2
-                ${dateMode === "start" ? "bg-white text-blue-600 shadow-sm" : "text-gray-400"}`}
+              className={`flex-1 py-2 rounded-md font-black text-sm transition-all ${
+                dateMode === "start"
+                  ? "bg-[#FF6B6B] text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  : "text-gray-400 hover:bg-gray-100"
+              }`}
+              aria-pressed={dateMode === "start"}
             >
-              📅 日時を指定
+              開始日時
             </button>
             <button
               type="button"
               onClick={() => setDateMode("due")}
-              className={`flex-1 py-2 rounded-md text-sm font-bold transition flex items-center justify-center gap-2
-                ${dateMode === "due" ? "bg-white text-blue-600 shadow-sm" : "text-gray-400"}`}
+              className={`flex-1 py-2 rounded-md font-black text-sm transition-all ${
+                dateMode === "due"
+                  ? "bg-[#4ECDC4] text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  : "text-gray-400 hover:bg-gray-100"
+              }`}
+              aria-pressed={dateMode === "due"}
             >
-              ⏰ 期限を設定
+              期限日時
             </button>
           </div>
 
-          <div className="bg-white border rounded-xl p-4 shadow-sm">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-bold text-gray-600">
-                {dateMode === "start" ? "開始日時" : "締め切り日時"}
-              </span>
-              <input
-                type="datetime-local"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="font-mono text-lg font-bold bg-transparent outline-none text-right"
-              />
-            </div>
+          <input
+            type="datetime-local"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="w-full p-3 rounded-xl border-2 border-black font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#FFD700]"
+          />
 
-            {dateMode === "start" && endTimeDisplay && (
-              <div className="flex justify-between items-center pt-2 border-t mt-2 text-blue-600">
-                <span className="text-sm font-bold">終了日時 (自動計算)</span>
-                <span className="text-lg font-bold">{endTimeDisplay}</span>
-              </div>
-            )}
-          </div>
+          {dateMode === "start" && endTimeDisplay && (
+            <div className="mt-3 text-center font-bold text-gray-600 bg-white py-2 px-4 rounded-lg border-2 border-black border-dashed">
+              終了予定:{" "}
+              <span className="text-[#FF6B6B] text-lg">{endTimeDisplay}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
