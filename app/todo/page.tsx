@@ -1,51 +1,422 @@
 "use client";
 
+import {
+  DndContext,
+  type DragEndEvent,
+  type DragMoveEvent,
+  DragOverlay,
+  type DragStartEvent,
+  PointerSensor,
+  TouchSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  FiCalendar,
-  FiClock,
-  FiLogOut,
-  FiPlus,
-  FiTrash2,
+  FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronUp,
 } from "react-icons/fi";
-import { MdOutlineTimer } from "react-icons/md";
 import { supabase } from "@/app/lib/supabase";
-import { logout } from "@/features/auth/api";
 import {
-  deleteTodo,
   getTodos,
   type Todo,
   toggleTodoCompletion,
+  updateTodo,
 } from "@/features/todos/api";
 import Frame from "../components/Frame";
+
+// スケジュールの時間範囲設定
+const SCHEDULE_START_HOUR = 0; // スケジュール開始時刻（時）
+const SCHEDULE_END_HOUR = 24; // スケジュール終了時刻（時）
+
+// 空き時間スロットの型定義
+type GapSlot = {
+  id: string;
+  startTime: Date;
+  endTime: Date;
+  durationMinutes: number;
+};
+
+// 所要時間に応じた色を返すヘルパー関数
+function getTimeColor(estimatedTime: number | null): string {
+  const time = estimatedTime || 0;
+  if (time >= 60) {
+    return "#FF4444"; // Red (Long)
+  } else if (time >= 30) {
+    return "#FFF600"; // Yellow (Medium)
+  }
+  return "#4ECDC4"; // Blue/Cyan (Short)
+}
+
+// ドラッグ可能な未配置タスクコンポーネント
+function DraggableTask({
+  todo,
+  isUrgent,
+  onEdit,
+  onToggle,
+}: {
+  todo: Todo;
+  isUrgent: boolean;
+  onEdit: () => void;
+  onToggle: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: todo.id,
+    data: { todo },
+  });
+
+  // 所要時間に応じたカラーバーの色
+  const barColor = getTimeColor(todo.estimated_time);
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`relative border-2 border-black rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all overflow-hidden ${
+        isDragging ? "opacity-30 border-dashed" : "hover:-translate-y-0.5"
+      } ${isUrgent ? "bg-[#FF6B6B] text-white" : "bg-white text-black"}`}
+    >
+      {/* 左側のカラーバー */}
+      {!isUrgent && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1.5"
+          style={{ backgroundColor: barColor }}
+        />
+      )}
+      <div className="p-3 pl-4">
+        <div className="flex items-start gap-3">
+          {/* ドラッグハンドル */}
+          <div
+            {...attributes}
+            {...listeners}
+            className={`flex-shrink-0 cursor-grab active:cursor-grabbing p-1 rounded ${
+              isUrgent ? "hover:bg-white/20" : "hover:bg-gray-100"
+            }`}
+            style={{ touchAction: "none" }}
+          >
+            <svg
+              className={`w-4 h-4 ${isUrgent ? "text-white/70" : "text-gray-400"}`}
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <title>ドラッグして移動</title>
+              <circle cx="9" cy="6" r="1.5" />
+              <circle cx="15" cy="6" r="1.5" />
+              <circle cx="9" cy="12" r="1.5" />
+              <circle cx="15" cy="12" r="1.5" />
+              <circle cx="9" cy="18" r="1.5" />
+              <circle cx="15" cy="18" r="1.5" />
+            </svg>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h3 className="font-black text-base leading-tight mb-1">
+              {todo.title}
+            </h3>
+            <div className="flex gap-2 text-[10px] font-bold flex-wrap">
+              {todo.due_at && (
+                <span
+                  className={`px-2 py-0.5 rounded border ${
+                    isUrgent
+                      ? "bg-white/20 border-white/40"
+                      : "bg-[#FFF3E0] border-[#FFB74D] text-[#E65100]"
+                  }`}
+                >
+                  {new Date(todo.due_at).toLocaleString("ja-JP", {
+                    month: "numeric",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  まで
+                </span>
+              )}
+              {todo.estimated_time && (
+                <span
+                  className={`px-2 py-0.5 rounded border ${
+                    isUrgent
+                      ? "bg-white/20 border-white/40"
+                      : "bg-gray-100 border-gray-300 text-gray-600"
+                  }`}
+                >
+                  {todo.estimated_time}分
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={onEdit}
+              className={`px-2 py-1 text-[10px] font-bold border rounded transition-colors ${
+                isUrgent
+                  ? "border-white text-white hover:bg-white/20"
+                  : "border-black text-black hover:bg-gray-50"
+              }`}
+            >
+              編集
+            </button>
+            <button
+              type="button"
+              onClick={onToggle}
+              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors group ${
+                isUrgent
+                  ? "border-white hover:bg-white/20"
+                  : "border-black hover:bg-[#4ECDC4] hover:border-[#4ECDC4]"
+              }`}
+            >
+              <svg
+                className="w-3.5 h-3.5 text-white opacity-0 group-hover:opacity-100"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <title>完了</title>
+                <polyline points="5 11 9 15 15 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ドロップ可能な空き時間スロットコンポーネント
+function DroppableGapSlot({
+  gap,
+  isExpanded,
+  onToggle,
+}: {
+  gap: GapSlot;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: gap.id,
+    data: { gap },
+  });
+
+  const formatTime = (date: Date) =>
+    `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0 && mins > 0) return `${hours}時間${mins}分`;
+    if (hours > 0) return `${hours}時間`;
+    return `${mins}分`;
+  };
+
+  // 空き時間に応じたドロップゾーンの高さを計算（最小80px、最大300px）
+  // 30分 = 80px, 1時間 = 120px, 2時間 = 200px, 3時間以上 = 300px
+  const dropZoneHeight = Math.min(300, Math.max(80, gap.durationMinutes * 2));
+
+  return (
+    <div className="relative">
+      {/* 折りたたみ時の表示 */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`w-full py-2 px-3 flex items-center justify-center gap-2 text-xs font-bold transition-all ${
+          isExpanded
+            ? "bg-[#4ECDC4]/20 border-2 border-[#4ECDC4] rounded-t-lg border-b-0"
+            : "bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-200"
+        }`}
+      >
+        <span className="text-gray-500">
+          {formatTime(gap.startTime)} ~ {formatTime(gap.endTime)}
+        </span>
+        <span className="text-[#4ECDC4] font-black">
+          空き {formatDuration(gap.durationMinutes)}
+        </span>
+        {isExpanded ? (
+          <FiChevronUp className="text-gray-500" />
+        ) : (
+          <FiChevronDown className="text-gray-500" />
+        )}
+      </button>
+
+      {/* 展開時のドロップゾーン */}
+      {isExpanded && (
+        <div
+          ref={setNodeRef}
+          style={{ minHeight: dropZoneHeight }}
+          className={`p-4 border-2 border-t-0 border-[#4ECDC4] rounded-b-lg transition-all ${
+            isOver ? "bg-[#4ECDC4]/30" : "bg-[#4ECDC4]/10"
+          }`}
+        >
+          <div
+            style={{ minHeight: dropZoneHeight - 32 }}
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-all flex items-center justify-center ${
+              isOver
+                ? "border-[#4ECDC4] bg-[#4ECDC4]/20"
+                : "border-gray-300 bg-white/50"
+            }`}
+          >
+            <p className="text-sm font-bold text-gray-500">
+              {isOver ? "ここにドロップ！" : "タスクをここにドラッグ"}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ドラッグ中のオーバーレイ表示用コンポーネント
+function TaskDragOverlay({
+  todo,
+  width,
+  previewTime,
+  overflowWarning,
+}: {
+  todo: Todo;
+  width?: number | null;
+  previewTime?: Date | null;
+  overflowWarning?: number | null;
+}) {
+  const isUrgent =
+    todo.due_at && new Date(todo.due_at) < new Date(Date.now() + 86400000);
+
+  const formatPreviewTime = (date: Date) =>
+    `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+
+  // 所要時間に応じたカラーバーの色
+  const barColor = getTimeColor(todo.estimated_time);
+
+  return (
+    <div className="relative pt-8">
+      {/* 配置予定時刻のプレビュー */}
+      {previewTime && (
+        <div
+          className={`absolute top-0 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm font-black shadow-lg whitespace-nowrap z-50 ${
+            overflowWarning
+              ? "bg-[#FF4444] text-white"
+              : "bg-[#4ECDC4] text-white"
+          }`}
+        >
+          {overflowWarning ? (
+            <span className="flex items-center gap-1">
+              ⚠️ {formatPreviewTime(previewTime)} 〜
+              <span className="text-xs">({overflowWarning}分超過)</span>
+            </span>
+          ) : (
+            <>{formatPreviewTime(previewTime)} 〜</>
+          )}
+        </div>
+      )}
+      <div
+        style={{ width: width ?? undefined }}
+        className={`relative border-2 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden ${
+          isUrgent ? "bg-[#FF6B6B] text-white" : "bg-white text-black"
+        }`}
+      >
+        {/* 左側のカラーバー */}
+        {!isUrgent && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1.5"
+            style={{ backgroundColor: barColor }}
+          />
+        )}
+        <div className="p-3 pl-4">
+          <div className="flex items-start gap-3">
+            {/* ドラッグハンドル（装飾用） */}
+            <div
+              className={`flex-shrink-0 p-1 rounded ${
+                isUrgent ? "bg-white/20" : "bg-gray-100"
+              }`}
+            >
+              <svg
+                className={`w-4 h-4 ${isUrgent ? "text-white/70" : "text-gray-400"}`}
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <title>ドラッグ中</title>
+                <circle cx="9" cy="6" r="1.5" />
+                <circle cx="15" cy="6" r="1.5" />
+                <circle cx="9" cy="12" r="1.5" />
+                <circle cx="15" cy="12" r="1.5" />
+                <circle cx="9" cy="18" r="1.5" />
+                <circle cx="15" cy="18" r="1.5" />
+              </svg>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <h3 className="font-black text-base leading-tight mb-1 truncate">
+                {todo.title}
+              </h3>
+              <div className="flex gap-2 text-[10px] font-bold flex-wrap">
+                {todo.due_at && (
+                  <span
+                    className={`px-2 py-0.5 rounded border ${
+                      isUrgent
+                        ? "bg-white/20 border-white/40"
+                        : "bg-[#FFF3E0] border-[#FFB74D] text-[#E65100]"
+                    }`}
+                  >
+                    {new Date(todo.due_at).toLocaleString("ja-JP", {
+                      month: "numeric",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    まで
+                  </span>
+                )}
+                {todo.estimated_time && (
+                  <span
+                    className={`px-2 py-0.5 rounded border ${
+                      isUrgent
+                        ? "bg-white/20 border-white/40"
+                        : "bg-gray-100 border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    {todo.estimated_time}分
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function TodoPage() {
   const router = useRouter();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
+  const [activeDragTodo, setActiveDragTodo] = useState<Todo | null>(null);
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const [previewTime, setPreviewTime] = useState<Date | null>(null);
+  const [overflowWarning, setOverflowWarning] = useState<number | null>(null); // はみ出し分数
+
+  // D&Dセンサー設定（タッチとポインター両対応）
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    }),
+  );
 
   useEffect(() => {
     const init = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
-        return;
-      }
-      setUser(session.user);
-
       try {
         const data = await getTodos();
-        const sortedData = data.sort((a, b) => {
-          if (a.is_completed === b.is_completed) {
-            return 0;
-          }
-          return a.is_completed ? 1 : -1;
-        });
-        setTodos(sortedData);
+        setTodos(data);
       } catch (e) {
         console.error(e);
         alert("データ取得失敗");
@@ -54,55 +425,336 @@ export default function TodoPage() {
       }
     };
     init();
-  }, [router]);
+  }, []);
 
   const handleToggle = async (id: string, currentStatus: boolean) => {
     try {
       const updated = await toggleTodoCompletion(id, !currentStatus);
-      setTodos((prev) =>
-        prev
-          .map((t) => (t.id === id ? updated : t))
-          .sort((a, b) =>
-            a.is_completed === b.is_completed ? 0 : a.is_completed ? 1 : -1,
-          ),
-      );
+      setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch (e) {
       alert("更新失敗");
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("本当に削除しますか？")) return;
-    try {
-      await deleteTodo(id);
-      setTodos(todos.filter((t) => t.id !== id));
-    } catch (e) {
-      alert("削除失敗");
-    }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("ja-JP", {
-      month: "numeric",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      weekday: "short",
+  const goToPreviousDay = () => {
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() - 1);
+      return newDate;
     });
   };
 
-  const formatDuration = (minutes: number) => {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    if (h === 0 && m === 0) return "0分";
-    return `${h > 0 ? `${h}時間` : ""}${m > 0 ? `${m}分` : ""}`;
+  const goToNextDay = () => {
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() + 1);
+      return newDate;
+    });
   };
+
+  // Filter todos for the selected date
+  const isSameDay = (date1: Date, date2: Date) => {
+    return (
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getDate() === date2.getDate()
+    );
+  };
+
+  const scheduledTodos = todos.filter(
+    (t) =>
+      t.start_at &&
+      !t.is_completed &&
+      isSameDay(new Date(t.start_at), selectedDate),
+  );
+  const unscheduledTodos = todos.filter((t) => !t.start_at && !t.is_completed);
+  const completedTodos = todos.filter((t) => t.is_completed);
+
+  // スケジュールタスクを時刻順にソート
+  const sortedScheduledTodos = [...scheduledTodos].sort(
+    (a, b) => new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime(),
+  );
+
+  // 空き時間スロットを計算
+  const calculateGapSlots = (): GapSlot[] => {
+    const dayStart = new Date(selectedDate);
+    dayStart.setHours(SCHEDULE_START_HOUR, 0, 0, 0);
+    const dayEnd = new Date(selectedDate);
+    dayEnd.setHours(SCHEDULE_END_HOUR, 0, 0, 0);
+
+    const gaps: GapSlot[] = [];
+    let currentTime = dayStart;
+
+    for (const todo of sortedScheduledTodos) {
+      const todoStart = new Date(todo.start_at!);
+      const todoEnd = new Date(
+        todoStart.getTime() + (todo.estimated_time || 30) * 60000,
+      );
+
+      // タスク開始前に空き時間があれば追加
+      if (todoStart > currentTime) {
+        const durationMinutes = Math.floor(
+          (todoStart.getTime() - currentTime.getTime()) / 60000,
+        );
+        if (durationMinutes >= 15) {
+          // 15分以上の空きのみ表示
+          gaps.push({
+            id: `gap-${currentTime.getTime()}`,
+            startTime: new Date(currentTime),
+            endTime: todoStart,
+            durationMinutes,
+          });
+        }
+      }
+      currentTime = todoEnd > currentTime ? todoEnd : currentTime;
+    }
+
+    // 最後のタスク後の空き時間
+    if (currentTime < dayEnd) {
+      const durationMinutes = Math.floor(
+        (dayEnd.getTime() - currentTime.getTime()) / 60000,
+      );
+      if (durationMinutes >= 15) {
+        gaps.push({
+          id: `gap-${currentTime.getTime()}`,
+          startTime: new Date(currentTime),
+          endTime: dayEnd,
+          durationMinutes,
+        });
+      }
+    }
+
+    return gaps;
+  };
+
+  const gapSlots = calculateGapSlots();
+
+  // スケジュールとギャップを時系列で結合
+  type ScheduleItem =
+    | { type: "todo"; data: Todo }
+    | { type: "gap"; data: GapSlot };
+
+  const buildTimelineItems = (): ScheduleItem[] => {
+    const items: ScheduleItem[] = [];
+    let gapIndex = 0;
+
+    for (const todo of sortedScheduledTodos) {
+      const todoStart = new Date(todo.start_at!);
+
+      // このタスクより前のギャップを追加
+      while (
+        gapIndex < gapSlots.length &&
+        gapSlots[gapIndex].endTime <= todoStart
+      ) {
+        items.push({ type: "gap", data: gapSlots[gapIndex] });
+        gapIndex++;
+      }
+
+      items.push({ type: "todo", data: todo });
+    }
+
+    // 残りのギャップを追加
+    while (gapIndex < gapSlots.length) {
+      items.push({ type: "gap", data: gapSlots[gapIndex] });
+      gapIndex++;
+    }
+
+    return items;
+  };
+
+  const timelineItems = buildTimelineItems();
+
+  // タスクが次のタスクや空き時間外にはみ出しているかチェック
+  const getTaskOverflow = (todo: Todo, index: number): number | null => {
+    const startTime = new Date(todo.start_at!);
+    const taskDuration = todo.estimated_time || 30;
+    const endTime = new Date(startTime.getTime() + taskDuration * 60000);
+
+    // 次のアイテムを見つける
+    const nextItem = timelineItems[index + 1];
+    if (nextItem) {
+      let nextStartTime: Date;
+      if (nextItem.type === "todo") {
+        nextStartTime = new Date(nextItem.data.start_at!);
+      } else {
+        nextStartTime = nextItem.data.startTime;
+      }
+
+      if (endTime > nextStartTime) {
+        return Math.ceil((endTime.getTime() - nextStartTime.getTime()) / 60000);
+      }
+    }
+
+    return null;
+  };
+
+  // D&Dハンドラー
+  const handleDragStart = (event: DragStartEvent) => {
+    const todo = event.active.data.current?.todo as Todo | undefined;
+    if (todo) {
+      setActiveDragTodo(todo);
+      // ドラッグ開始時の要素の幅を取得
+      const rect = event.active.rect.current.initial;
+      if (rect) {
+        setDragWidth(rect.width);
+      }
+    }
+  };
+
+  // ドラッグ中の位置から時刻を計算するヘルパー関数
+  const calculateTimeFromPosition = (
+    activeRect: { top: number; height: number } | null,
+    overRect: { top: number; height: number } | null,
+    gap: GapSlot,
+  ): Date | null => {
+    if (!activeRect || !overRect) return null;
+
+    const dropY = activeRect.top + activeRect.height / 2;
+    const relativeY = Math.max(
+      0,
+      Math.min(1, (dropY - overRect.top) / overRect.height),
+    );
+
+    const totalMinutes = gap.durationMinutes * relativeY;
+    const roundedMinutes = Math.round(totalMinutes / 5) * 5;
+
+    let time = new Date(gap.startTime.getTime() + roundedMinutes * 60000);
+
+    if (time >= gap.endTime) {
+      time = new Date(gap.endTime.getTime() - 5 * 60000);
+    }
+
+    return time;
+  };
+
+  const handleDragMove = (event: DragMoveEvent) => {
+    const { active, over } = event;
+
+    if (!over) {
+      setPreviewTime(null);
+      setOverflowWarning(null);
+      return;
+    }
+
+    const gap = over.data.current?.gap as GapSlot | undefined;
+    if (!gap) {
+      setPreviewTime(null);
+      setOverflowWarning(null);
+      return;
+    }
+
+    const overRect = over.rect;
+    const activeRect = active.rect.current.translated;
+
+    const time = calculateTimeFromPosition(activeRect, overRect, gap);
+    setPreviewTime(time);
+
+    // タスクの所要時間が空き時間を超えるかチェック
+    const todo = active.data.current?.todo as Todo | undefined;
+    if (todo && time) {
+      const taskDuration = todo.estimated_time || 30;
+      const remainingMinutes = Math.floor(
+        (gap.endTime.getTime() - time.getTime()) / 60000,
+      );
+      if (taskDuration > remainingMinutes) {
+        setOverflowWarning(taskDuration - remainingMinutes);
+      } else {
+        setOverflowWarning(null);
+      }
+    } else {
+      setOverflowWarning(null);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDragTodo(null);
+    setDragWidth(null);
+    setPreviewTime(null);
+    setOverflowWarning(null);
+
+    const { active, over } = event;
+    if (!over) return;
+
+    const todo = active.data.current?.todo as Todo | undefined;
+    const gap = over.data.current?.gap as GapSlot | undefined;
+
+    if (!todo || !gap) return;
+
+    // 元のstart_atを保存（ロールバック用）
+    const originalStartAt = todo.start_at;
+
+    // ドロップ位置から時刻を計算（5分刻み）
+    const overRect = over.rect;
+    const activeRect = active.rect.current.translated;
+
+    const newStartAt =
+      calculateTimeFromPosition(activeRect, overRect, gap) ?? gap.startTime;
+
+    const newStartAtISO = newStartAt.toISOString();
+
+    // 楽観的UI更新
+    setTodos((prev) =>
+      prev.map((t) =>
+        t.id === todo.id ? { ...t, start_at: newStartAtISO } : t,
+      ),
+    );
+
+    // 展開状態をリセット
+    setExpandedSlots(new Set());
+
+    try {
+      await updateTodo(todo.id, { start_at: newStartAtISO });
+    } catch (e) {
+      // エラー時は元の値にロールバック
+      setTodos((prev) =>
+        prev.map((t) =>
+          t.id === todo.id ? { ...t, start_at: originalStartAt } : t,
+        ),
+      );
+      alert("スケジュール配置に失敗しました");
+    }
+  };
+
+  const toggleSlotExpansion = (slotId: string) => {
+    setExpandedSlots((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(slotId)) {
+        newSet.delete(slotId);
+      } else {
+        newSet.add(slotId);
+      }
+      return newSet;
+    });
+  };
+
+  // タスクを未配置に戻す（task_type=deadlineのタスクのみ）
+  const handleUnschedule = async (todo: Todo) => {
+    if (todo.task_type === "scheduled") {
+      alert("開始時間付きタスクは未配置に戻せません");
+      return;
+    }
+
+    // 楽観的UI更新
+    const previousStartAt = todo.start_at;
+    setTodos((prev) =>
+      prev.map((t) => (t.id === todo.id ? { ...t, start_at: null } : t)),
+    );
+
+    try {
+      await updateTodo(todo.id, { start_at: null });
+    } catch (e) {
+      // エラー時はロールバック
+      setTodos((prev) =>
+        prev.map((t) =>
+          t.id === todo.id ? { ...t, start_at: previousStartAt } : t,
+        ),
+      );
+      alert("未配置への変更に失敗しました");
+    }
+  };
+
+  // Get date string for display
+  const dateStr = `${selectedDate.getMonth() + 1}/${selectedDate.getDate()}(${["日", "月", "火", "水", "木", "金", "土"][selectedDate.getDay()]})`;
 
   if (loading)
     return (
@@ -115,171 +767,318 @@ export default function TodoPage() {
 
   return (
     <Frame active="todo">
-      <div className="pb-20">
-        {/* Header */}
-        <header className="flex justify-between items-end mb-6">
-          <div>
-            <h1 className="text-3xl font-black text-black tracking-tight">
-              マイタスク
-            </h1>
-            <p className="text-gray-600 font-bold text-sm mt-1">
-              残り{" "}
-              <span className="text-[#FF6B6B] text-lg">
-                {todos.filter((t) => !t.is_completed).length}
-              </span>{" "}
-              件
-            </p>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="pb-20 font-sans">
+          {/* Top Buttons */}
+          <div className="flex gap-3 mb-6">
+            <button
+              type="button"
+              onClick={() => router.push("/todo/task-modal?open=1")}
+              className="flex-1 bg-white border-2 border-black rounded-full py-2 px-4 font-bold text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-[2px] active:shadow-none transition-all hover:bg-gray-50"
+            >
+              TODO作成
+            </button>
+            <button
+              type="button"
+              className="flex-1 bg-white border-2 border-black rounded-full py-2 px-4 font-bold text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-[2px] active:shadow-none transition-all hover:bg-gray-50"
+            >
+              カレンダー
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="p-2 text-black border-2 border-black rounded-lg hover:bg-gray-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all"
-            title="ログアウト"
-          >
-            <FiLogOut size={20} />
-          </button>
-        </header>
 
-        {/* Add Button */}
-        <button
-          type="button"
-          onClick={() => router.push("/todo/task-modal?open=1")}
-          className="w-full mb-6 bg-[#4ECDC4] text-white font-black py-3 px-4 rounded-xl border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
-        >
-          <FiPlus size={24} strokeWidth={3} />
-          <span>新しいタスクを追加</span>
-        </button>
+          {/* Date Header */}
+          <div className="flex items-center justify-between mb-4 bg-white border-2 border-black rounded-lg p-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <button
+              type="button"
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              onClick={goToPreviousDay}
+              aria-label="前の日"
+            >
+              <FiChevronLeft size={20} className="text-gray-700" />
+            </button>
+            <span className="font-black text-base tracking-wide text-gray-700">
+              {dateStr} スケジュール
+            </span>
+            <button
+              type="button"
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              onClick={goToNextDay}
+              aria-label="次の日"
+            >
+              <FiChevronRight size={20} className="text-gray-700" />
+            </button>
+          </div>
 
-        {/* Task List */}
-        <ul className="space-y-4">
-          {todos.map((todo) => {
-            const isOverdue =
-              !todo.is_completed &&
-              todo.due_at &&
-              new Date(todo.due_at) < new Date();
+          {/* Timeline with Scheduled Tasks and Gap Slots */}
+          {timelineItems.length > 0 ? (
+            <div className="space-y-2 mb-6">
+              {timelineItems.map((item, index) => {
+                if (item.type === "gap") {
+                  return (
+                    <DroppableGapSlot
+                      key={item.data.id}
+                      gap={item.data}
+                      isExpanded={expandedSlots.has(item.data.id)}
+                      onToggle={() => toggleSlotExpansion(item.data.id)}
+                    />
+                  );
+                }
 
-            return (
-              <li
-                key={todo.id}
-                className={`group relative bg-white p-4 rounded-xl border-2 border-black transition-all duration-200 ${
-                  todo.is_completed
-                    ? "opacity-60 bg-gray-50"
-                    : "shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {/* Checkbox */}
-                  <div className="pt-1">
-                    <label className="inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={todo.is_completed ?? false}
-                        onChange={() =>
-                          handleToggle(todo.id, todo.is_completed ?? false)
-                        }
-                        className="sr-only peer"
-                        aria-label={todo.title || "タスク"}
-                      />
-                      <span
-                        className="w-6 h-6 flex items-center justify-center border-2 border-black rounded-md bg-white peer-checked:bg-[#4ECDC4] transition-colors duration-200
-                        peer-focus:ring-2 peer-focus:ring-offset-2 peer-focus:ring-[#4ECDC4]"
-                      >
-                        {/* Checkmark */}
-                        <svg
-                          className={`w-4 h-4 text-white ${todo.is_completed ? "opacity-100" : "opacity-0"}`}
-                          viewBox="0 0 20 20"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <title>Checkmark icon</title>
-                          <polyline points="5 11 9 15 15 7" />
-                        </svg>
-                      </span>
-                    </label>
-                  </div>
+                const todo = item.data;
+                const startTime = new Date(todo.start_at!);
+                const endTime = new Date(
+                  startTime.getTime() + (todo.estimated_time || 30) * 60000,
+                );
+                const barColor = getTimeColor(todo.estimated_time);
+                const overflow = getTaskOverflow(todo, index);
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start gap-2">
-                      <h3
-                        className={`text-lg font-bold leading-tight break-words ${
-                          todo.is_completed
-                            ? "text-gray-500 line-through decoration-2"
-                            : "text-black"
-                        }`}
-                      >
-                        {todo.title}
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(todo.id)}
-                        className="text-black hover:text-[#FF6B6B] p-1 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                        title="削除"
-                      >
-                        <FiTrash2 size={18} strokeWidth={2.5} />
-                      </button>
+                return (
+                  <div
+                    key={todo.id}
+                    className={`relative bg-white border-2 rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-transform overflow-hidden ${
+                      overflow ? "border-[#FF4444]" : "border-black"
+                    }`}
+                  >
+                    {/* 左側のカラーバー */}
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-1.5"
+                      style={{
+                        backgroundColor: overflow ? "#FF4444" : barColor,
+                      }}
+                    />
+                    {/* 警告バッジ */}
+                    {overflow && (
+                      <div className="absolute bottom-2 right-2 bg-[#FF4444] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md z-10">
+                        ⚠️ {overflow}分超過
+                      </div>
+                    )}
+                    <div className="p-3 pl-4">
+                      <div className="flex items-start gap-2">
+                        {/* Time */}
+                        <div className="flex-shrink-0 w-12 pt-0.5">
+                          <div className="text-xs font-black text-gray-800">
+                            {startTime.getHours().toString().padStart(2, "0")}:
+                            {startTime.getMinutes().toString().padStart(2, "0")}
+                          </div>
+                          <div className="text-[10px] font-bold text-gray-400">
+                            ~{endTime.getHours().toString().padStart(2, "0")}:
+                            {endTime.getMinutes().toString().padStart(2, "0")}
+                          </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-black text-base leading-tight mb-1 break-words text-gray-900">
+                            {todo.title}
+                          </h3>
+                          {todo.estimated_time && (
+                            <span
+                              className="inline-block text-[10px] font-bold px-2 py-0.5 rounded border text-gray-700"
+                              style={{
+                                backgroundColor: `${barColor}30`,
+                                borderColor: barColor,
+                              }}
+                            >
+                              {todo.estimated_time}分
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {/* 未配置に戻すボタン（deadline タスクのみ） */}
+                          {todo.task_type === "deadline" && (
+                            <button
+                              type="button"
+                              onClick={() => handleUnschedule(todo)}
+                              className="px-2 py-1 text-[10px] font-bold rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+                              title="未配置に戻す"
+                            >
+                              解除
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                `/todo/task-modal?id=${todo.id}&open=1`,
+                              )
+                            }
+                            className="px-2 py-1 text-[10px] font-bold rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+                          >
+                            編集
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleToggle(todo.id, todo.is_completed)
+                            }
+                            className="w-7 h-7 rounded-full bg-white border-2 border-gray-600 hover:bg-[#4ECDC4] flex items-center justify-center transition-colors group"
+                          >
+                            <svg
+                              className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors"
+                              viewBox="0 0 20 20"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <title>完了</title>
+                              <polyline points="5 11 9 15 15 7" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                     </div>
-
-                    {/* Meta Info */}
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-                      {/* Start Date */}
-                      {todo.start_at && (
-                        <div className="flex items-center gap-1 bg-[#E0F7FA] text-[#006064] px-2 py-1 rounded border border-black">
-                          <FiCalendar />
-                          <span>{formatDate(todo.start_at)}</span>
-                        </div>
-                      )}
-
-                      {/* Due Date */}
-                      {(todo.due_at || isOverdue) && (
-                        <div
-                          className={`flex items-center gap-1 px-2 py-1 rounded border border-black ${
-                            isOverdue
-                              ? "bg-[#FFEBEE] text-[#C62828]"
-                              : "bg-[#FFF3E0] text-[#E65100]"
-                          }`}
-                        >
-                          <FiClock />
-                          <span>
-                            {todo.due_at ? formatDate(todo.due_at) : "期限なし"}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Estimated Time */}
-                      {todo.estimated_time && (
-                        <div className="flex items-center gap-1 bg-[#F3E5F5] text-[#4A148C] px-2 py-1 rounded border border-black">
-                          <MdOutlineTimer size={14} />
-                          <span>{formatDuration(todo.estimated_time)}</span>
-                        </div>
-                      )}
-                    </div>
                   </div>
-                </div>
-              </li>
-            );
-          })}
-
-          {todos.length === 0 && (
-            <div className="text-center py-12 px-4 border-2 border-dashed border-gray-300 rounded-xl">
-              <div className="bg-[#E0F7FA] w-16 h-16 rounded-full border-2 border-black flex items-center justify-center mx-auto mb-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                <FiCalendar className="text-[#006064] text-2xl" />
-              </div>
-              <h3 className="text-lg font-black text-black">
-                タスクがありません
-              </h3>
-              <p className="text-gray-500 mt-1 font-bold text-sm">
-                新しいタスクを追加して
-                <br />
-                整理整頓を始めましょう！
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mb-6 text-center py-8 border-2 border-dashed border-gray-300 rounded-xl">
+              <p className="text-sm font-bold text-gray-400">
+                今日のスケジュールはありません
               </p>
+              {/* 空の日でも最初のギャップスロットを表示 */}
+              {gapSlots.length > 0 && (
+                <div className="mt-4">
+                  <DroppableGapSlot
+                    gap={gapSlots[0]}
+                    isExpanded={expandedSlots.has(gapSlots[0].id)}
+                    onToggle={() => toggleSlotExpansion(gapSlots[0].id)}
+                  />
+                </div>
+              )}
             </div>
           )}
-        </ul>
-      </div>
+
+          {/* Unplaced Tasks Section */}
+          <div className="mt-6">
+            <div className="flex justify-between items-center mb-3 px-1">
+              <h2 className="font-black text-lg text-black">未配置タスク</h2>
+              <span className="text-[10px] font-bold text-gray-500">
+                {unscheduledTodos.length}件
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {unscheduledTodos.length === 0 && (
+                <div className="text-center py-6 text-gray-400 font-bold text-sm border-2 border-dashed border-gray-300 rounded-xl">
+                  未配置のタスクはありません
+                </div>
+              )}
+
+              {unscheduledTodos.map((todo) => {
+                const isUrgent =
+                  todo.due_at &&
+                  new Date(todo.due_at) < new Date(Date.now() + 86400000);
+
+                return (
+                  <DraggableTask
+                    key={todo.id}
+                    todo={todo}
+                    isUrgent={!!isUrgent}
+                    onEdit={() =>
+                      router.push(`/todo/task-modal?id=${todo.id}&open=1`)
+                    }
+                    onToggle={() => handleToggle(todo.id, false)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Completed Tasks Section */}
+          {completedTodos.length > 0 && (
+            <div className="mt-6">
+              <div className="flex justify-between items-center mb-3 px-1">
+                <h2 className="font-black text-lg text-gray-500">完了済み</h2>
+                <span className="text-[10px] font-bold text-gray-400">
+                  {completedTodos.length}件
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {completedTodos.map((todo) => {
+                  const dueDate = todo.due_at ? new Date(todo.due_at) : null;
+
+                  return (
+                    <div
+                      key={todo.id}
+                      className="relative border-2 border-gray-300 rounded-xl p-3 bg-gray-50 opacity-60"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-black text-base leading-tight mb-1 text-gray-500 line-through">
+                            {todo.title}
+                          </h3>
+                          <div className="flex gap-2 text-[10px] font-bold flex-wrap">
+                            {dueDate && (
+                              <span className="px-2 py-0.5 rounded border bg-gray-100 border-gray-300 text-gray-500">
+                                {dueDate.toLocaleString("ja-JP", {
+                                  month: "numeric",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                                まで
+                              </span>
+                            )}
+                            {todo.estimated_time && (
+                              <span className="px-2 py-0.5 rounded border bg-gray-100 border-gray-300 text-gray-500">
+                                {todo.estimated_time}分
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleToggle(todo.id, true)}
+                            className="w-6 h-6 rounded-full border-2 border-gray-400 bg-[#4ECDC4] flex items-center justify-center hover:opacity-80 transition-opacity"
+                            title="未完了に戻す"
+                          >
+                            <svg
+                              className="w-3.5 h-3.5 text-white"
+                              viewBox="0 0 20 20"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <title>未完了に戻す</title>
+                              <polyline points="5 11 9 15 15 7" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Drag Overlay */}
+        <DragOverlay>
+          {activeDragTodo && (
+            <TaskDragOverlay
+              todo={activeDragTodo}
+              width={dragWidth}
+              previewTime={previewTime}
+              overflowWarning={overflowWarning}
+            />
+          )}
+        </DragOverlay>
+      </DndContext>
     </Frame>
   );
 }

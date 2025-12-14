@@ -2,24 +2,99 @@
 
 import { useEffect, useId, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
-import { addTodo } from "@/features/todos/api";
+import {
+  addTodo,
+  getOverlappingTodos,
+  type RecurrenceType,
+  type Todo,
+  updateTodo,
+} from "@/features/todos/api";
+import { BookingWarningDialog } from "./BookingWarningDialog";
 
-export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
+export const AddTaskModal = ({
+  onClose,
+  todoId,
+}: {
+  onClose: () => void;
+  todoId?: string;
+}) => {
   // 入力ステート
   const [title, setTitle] = useState("");
   const [estimated, setEstimated] = useState(45);
+  const [loading, setLoading] = useState(false);
 
   // ユニークID生成
   const taskTitleId = useId();
   const estimatedId = useId();
+  const recurrenceId = useId();
 
   // 日時モード
   const [dateMode, setDateMode] = useState<"start" | "due">("start");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [endTimeDisplay, setEndTimeDisplay] = useState("");
 
-  // 初期値セット（次の00分）
+  // 繰り返し設定のステート
+  const [recurrence, setRecurrence] = useState<RecurrenceType>(null);
+
+  // 重複警告ダイアログ用のステート
+  const [showWarningDialog, setShowWarningDialog] = useState(false);
+  const [overlappingTodos, setOverlappingTodos] = useState<Todo[]>([]);
+
+  // 編集モードの場合、既存のタスク情報を読み込む
   useEffect(() => {
+    const loadTodo = async () => {
+      if (!todoId) return;
+
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("todos")
+          .select("*")
+          .eq("id", todoId)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setTitle(data.title || "");
+          setEstimated(data.estimated_time || 45);
+          setRecurrence(data.recurrence_type as RecurrenceType);
+
+          // 開始時刻または期限日時を設定
+          if (data.start_at) {
+            setDateMode("start");
+            const startDate = new Date(data.start_at);
+            const isoString = new Date(
+              startDate.getTime() - startDate.getTimezoneOffset() * 60000,
+            )
+              .toISOString()
+              .slice(0, 16);
+            setSelectedDate(isoString);
+          } else if (data.due_at) {
+            setDateMode("due");
+            const dueDate = new Date(data.due_at);
+            const isoString = new Date(
+              dueDate.getTime() - dueDate.getTimezoneOffset() * 60000,
+            )
+              .toISOString()
+              .slice(0, 16);
+            setSelectedDate(isoString);
+          }
+        }
+      } catch (e) {
+        console.error("タスクの読み込みエラー:", e);
+        alert("タスクの読み込みに失敗しました");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTodo();
+  }, [todoId]);
+
+  // 初期値セット（次の00分）- 新規作成時のみ
+  useEffect(() => {
+    if (todoId) return; // 編集モードの場合はスキップ
+
     const now = new Date();
     now.setMinutes(0, 0, 0);
     now.setHours(now.getHours() + 1);
@@ -27,7 +102,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
       .toISOString()
       .slice(0, 16);
     setSelectedDate(isoString);
-  }, []);
+  }, [todoId]);
 
   // 終了時間計算
   useEffect(() => {
@@ -51,19 +126,83 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("ログインしてください");
 
-      await addTodo(
-        title,
-        user.id,
-        estimated,
-        dateMode === "start" ? new Date(selectedDate).toISOString() : undefined,
-        dateMode === "due" ? new Date(selectedDate).toISOString() : undefined,
-      );
+      // 開始日時モードの場合、重複チェックを実行（新規作成時のみ）
+      if (dateMode === "start" && selectedDate && !todoId) {
+        const startAt = new Date(selectedDate);
+        const overlapping = await getOverlappingTodos(
+          user.id,
+          startAt,
+          estimated,
+        );
 
-      alert("保存しました！");
-      onClose();
+        // 重複がある場合は警告ダイアログを表示
+        if (overlapping.length > 0) {
+          setOverlappingTodos(overlapping);
+          setShowWarningDialog(true);
+          return;
+        }
+      }
+
+      // 重複がない場合、または期限モードの場合は直接保存
+      await saveTask();
     } catch (e) {
       alert("エラー: " + (e as Error).message);
     }
+  };
+
+  // 実際の保存処理
+  const saveTask = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("ログインしてください");
+
+      if (todoId) {
+        // 編集モード: 既存のタスクを更新
+        await updateTodo(todoId, {
+          title,
+          estimated_time: estimated,
+          start_at:
+            dateMode === "start" ? new Date(selectedDate).toISOString() : null,
+          due_at:
+            dateMode === "due" ? new Date(selectedDate).toISOString() : null,
+          recurrence_type: recurrence,
+          task_type: dateMode === "start" ? "scheduled" : "deadline",
+        });
+        alert("更新しました！");
+      } else {
+        // 新規作成モード
+        await addTodo(
+          title,
+          user.id,
+          estimated,
+          dateMode === "start"
+            ? new Date(selectedDate).toISOString()
+            : undefined,
+          dateMode === "due" ? new Date(selectedDate).toISOString() : undefined,
+          recurrence,
+          dateMode === "start" ? "scheduled" : "deadline",
+        );
+        alert("保存しました！");
+      }
+
+      onClose();
+    } catch (e) {
+      alert("エラー: " + (e as Error).message);
+      setShowWarningDialog(false);
+    }
+  };
+
+  // 警告ダイアログから「このまま保存する」を選択
+  const handleConfirmSave = () => {
+    saveTask();
+  };
+
+  // 警告ダイアログから「時間を変更する」を選択
+  const handleChangeTime = () => {
+    setShowWarningDialog(false);
+    setOverlappingTodos([]);
   };
 
   return (
@@ -150,7 +289,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
         </div>
 
         {/* 日時設定 */}
-        <div className="mb-8 bg-[#F0F4F8] p-4 rounded-xl border-2 border-black">
+        <div className="mb-6 bg-[#F0F4F8] p-4 rounded-xl border-2 border-black">
           <div className="flex gap-2 mb-4 bg-white p-1 rounded-lg border-2 border-black">
             <button
               type="button"
@@ -192,7 +331,90 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
             </div>
           )}
         </div>
+
+        {/* 繰り返し設定 */}
+        <div className="mb-8">
+          <span
+            id={recurrenceId}
+            className="text-sm font-black block mb-2 flex items-center gap-2"
+          >
+            <span className="w-3 h-3 bg-[#A8DADC] rounded-full border border-black"></span>
+            繰り返し設定
+          </span>
+          <div className="bg-[#F0F4F8] p-4 rounded-xl border-2 border-black">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setRecurrence(null)}
+                className={`py-3 px-4 rounded-lg font-black text-sm transition-all ${
+                  recurrence === null
+                    ? "bg-white text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                    : "bg-white/50 text-gray-500 border-2 border-gray-300 hover:bg-white/80"
+                }`}
+                aria-pressed={recurrence === null}
+              >
+                なし
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecurrence("daily")}
+                className={`py-3 px-4 rounded-lg font-black text-sm transition-all ${
+                  recurrence === "daily"
+                    ? "bg-[#FF6B6B] text-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                    : "bg-white/50 text-gray-500 border-2 border-gray-300 hover:bg-white/80"
+                }`}
+                aria-pressed={recurrence === "daily"}
+              >
+                毎日 🔄
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecurrence("weekly")}
+                className={`py-3 px-4 rounded-lg font-black text-sm transition-all ${
+                  recurrence === "weekly"
+                    ? "bg-[#4ECDC4] text-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                    : "bg-white/50 text-gray-500 border-2 border-gray-300 hover:bg-white/80"
+                }`}
+                aria-pressed={recurrence === "weekly"}
+              >
+                毎週 📅
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecurrence("monthly")}
+                className={`py-3 px-4 rounded-lg font-black text-sm transition-all ${
+                  recurrence === "monthly"
+                    ? "bg-[#FFE66D] text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                    : "bg-white/50 text-gray-500 border-2 border-gray-300 hover:bg-white/80"
+                }`}
+                aria-pressed={recurrence === "monthly"}
+              >
+                毎月 🗓️
+              </button>
+            </div>
+          </div>
+          {recurrence && (
+            <p className="text-xs text-[#4ECDC4] mt-2 font-bold bg-[#4ECDC4]/10 p-2 rounded-lg border-2 border-[#4ECDC4] border-dashed">
+              ※ タスクを完了すると、自動で次の
+              {recurrence === "daily"
+                ? "日"
+                : recurrence === "weekly"
+                  ? "週"
+                  : "月"}
+              にタスクが作られます
+            </p>
+          )}
+        </div>
       </div>
+
+      {/* 重複警告ダイアログ */}
+      {showWarningDialog && overlappingTodos.length > 0 && (
+        <BookingWarningDialog
+          overlappingTodos={overlappingTodos}
+          onConfirmSave={handleConfirmSave}
+          onChangeTime={handleChangeTime}
+        />
+      )}
     </div>
   );
 };
