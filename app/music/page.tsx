@@ -53,6 +53,7 @@ interface SpotifyTrackInfo {
   artists: SpotifyArtistInfo[];
   album: {
     name: string;
+    images: { url: string; height: number; width: number }[];
   };
 }
 
@@ -725,24 +726,40 @@ export default function MusicPage() {
                   )}
 
                   {!showDeleteConfirm && !showNextAction && currentTrack && (
-                    <div className="rounded-xl border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-                        <FiMusic size={100} />
-                      </div>
-                      <div className="mb-4 relative z-10">
-                        <div className="inline-block px-2 py-0.5 bg-black text-white text-xs font-bold rounded mb-2">
-                          NOW PLAYING
+                    <div className="rounded-xl border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <div className="flex gap-4 mb-4">
+                        {currentTrack.album.images &&
+                        currentTrack.album.images.length > 0 ? (
+                          <div className="flex-shrink-0">
+                            <img
+                              src={currentTrack.album.images[0].url}
+                              alt={`${currentTrack.album.name} アルバムアート`}
+                              className="w-24 h-24 rounded-lg border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex-shrink-0 w-24 h-24 rounded-lg border-4 border-black bg-gray-200 flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                            <FiMusic size={40} className="text-gray-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="inline-block px-2 py-0.5 bg-black text-white text-xs font-bold rounded mb-2">
+                            NOW PLAYING
+                          </div>
+                          <p className="font-black text-xl truncate">
+                            {currentTrack.name}
+                          </p>
+                          <p className="font-bold text-gray-500 truncate">
+                            {currentTrack.artists
+                              .map((artist) => artist.name)
+                              .join(", ")}
+                          </p>
+                          <p className="text-xs font-bold text-gray-400 truncate mt-1">
+                            {currentTrack.album.name}
+                          </p>
                         </div>
-                        <p className="font-black text-xl truncate">
-                          {currentTrack.name}
-                        </p>
-                        <p className="font-bold text-gray-500 truncate">
-                          {currentTrack.artists
-                            .map((artist) => artist.name)
-                            .join(", ")}
-                        </p>
                       </div>
-                      <div className="flex items-center justify-center gap-6 relative z-10">
+                      <div className="flex items-center justify-center gap-6">
                         <button
                           type="button"
                           onClick={handlePreviousTrack}
