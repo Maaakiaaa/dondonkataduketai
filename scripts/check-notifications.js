@@ -14,6 +14,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
+// 時刻が範囲内かチェック（±5分の余裕を持たせる）
+function isWithinTimeRange(
+  currentHour,
+  currentMinute,
+  targetHour,
+  targetMinute,
+) {
+  const currentTotalMinutes = currentHour * 60 + currentMinute;
+  const targetTotalMinutes = targetHour * 60 + targetMinute;
+  const diff = Math.abs(currentTotalMinutes - targetTotalMinutes);
+
+  // 5分以内ならtrue
+  return diff <= 5;
+}
+
 async function checkAndSendNotifications() {
   try {
     // 日本時間で計算
@@ -54,17 +69,27 @@ async function checkAndSendNotifications() {
       const eveningHour = parseInt(sub.evening_time?.slice(0, 2) || "20");
       const eveningMinute = parseInt(sub.evening_time?.slice(3, 5) || "0");
 
+      console.log(
+        `ユーザーID: ${sub.user_id}, 朝の通知: ${morningHour}:${morningMinute.toString().padStart(2, "0")}, 夜の通知: ${eveningHour}:${eveningMinute.toString().padStart(2, "0")}`,
+      );
+
       // 今日既に送信したかチェック
       const lastMorning = sub.last_morning_notification?.split("T")[0];
       const lastEvening = sub.last_evening_notification?.split("T")[0];
 
-      // 朝の通知
+      // 朝の通知（5分以内なら送信）
       if (
-        currentHour === morningHour &&
-        currentMinute === morningMinute &&
+        isWithinTimeRange(
+          currentHour,
+          currentMinute,
+          morningHour,
+          morningMinute,
+        ) &&
         lastMorning !== today
       ) {
         try {
+          console.log(`🔔 朝の通知を送信中: ${sub.user_id}`);
+
           await webpush.sendNotification(
             {
               endpoint: sub.endpoint,
@@ -74,9 +99,9 @@ async function checkAndSendNotifications() {
               },
             },
             JSON.stringify({
-              title: "おはようございます！ ☀️",
-              body: "今日のTODOを確認しよう！",
-              icon: "/icon.png",
+              title: "どぅんどぅん",
+              body: "おはようございます！ ☀️今日のTODOを確認しよう！",
+              icon: "/dolundolun.png",
               data: { url: "/todo" },
             }),
           );
@@ -88,7 +113,7 @@ async function checkAndSendNotifications() {
             .eq("id", sub.id);
 
           console.log(
-            `✅ 朝の通知送信: ${sub.user_id} (${morningHour}:${morningMinute.toString().padStart(2, "0")})`,
+            `✅ 朝の通知送信成功: ${sub.user_id} (設定時刻: ${morningHour}:${morningMinute.toString().padStart(2, "0")}, 送信時刻: ${currentHour}:${currentMinute.toString().padStart(2, "0")})`,
           );
         } catch (error) {
           console.error("通知送信失敗:", error);
@@ -103,13 +128,19 @@ async function checkAndSendNotifications() {
         }
       }
 
-      // 夜の通知
+      // 夜の通知（5分以内なら送信）
       if (
-        currentHour === eveningHour &&
-        currentMinute === eveningMinute &&
+        isWithinTimeRange(
+          currentHour,
+          currentMinute,
+          eveningHour,
+          eveningMinute,
+        ) &&
         lastEvening !== today
       ) {
         try {
+          console.log(`🔔 夜の通知を送信中: ${sub.user_id}`);
+
           await webpush.sendNotification(
             {
               endpoint: sub.endpoint,
@@ -119,9 +150,9 @@ async function checkAndSendNotifications() {
               },
             },
             JSON.stringify({
-              title: "お疲れさまです！ 🌙",
-              body: "今日のTODOは片付いたかな？",
-              icon: "/icon.png",
+              title: "どぅんどぅん",
+              body: "お疲れさま！🌙今日のTODOは片付いたかな？",
+              icon: "/dolundolun.png",
               data: { url: "/todo" },
             }),
           );
@@ -133,7 +164,7 @@ async function checkAndSendNotifications() {
             .eq("id", sub.id);
 
           console.log(
-            `✅ 夜の通知送信: ${sub.user_id} (${eveningHour}:${eveningMinute.toString().padStart(2, "0")})`,
+            `✅ 夜の通知送信成功: ${sub.user_id} (設定時刻: ${eveningHour}:${eveningMinute.toString().padStart(2, "0")}, 送信時刻: ${currentHour}:${currentMinute.toString().padStart(2, "0")})`,
           );
         } catch (error) {
           console.error("通知送信失敗:", error);

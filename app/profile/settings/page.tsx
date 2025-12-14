@@ -366,7 +366,7 @@ export default function ProfileSettingsPage() {
                   htmlFor={morningTimeId}
                   className="text-xs text-zinc-600 dark:text-zinc-400"
                 >
-                  朝の通知（今日のTODOを確認しよう！）
+                  モーニングコール
                 </label>
                 <input
                   id={morningTimeId}
@@ -383,7 +383,7 @@ export default function ProfileSettingsPage() {
                   htmlFor={eveningTimeId}
                   className="text-xs text-zinc-600 dark:text-zinc-400"
                 >
-                  夜の通知（今日のTODOは片付いたかな？）
+                  ナイトコール
                 </label>
                 <input
                   id={eveningTimeId}
