@@ -1,9 +1,8 @@
-// app/demo/task-modal/page.tsx
+// app/todo/task-modal/page.tsx
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { supabase } from "@/app/lib/supabase";
 import { AddTaskModal } from "@/features/todos/components/AddTaskModal";
 
 // useSearchParams を使うコンポーネントを分離
@@ -11,21 +10,6 @@ function TaskModalContent() {
   const router = useRouter();
   // モーダルの開閉状態を管理するステート
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // ログイン状態のチェック用
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-
-  // ページを開いた時にログインチェック
-  useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
-      setCheckingAuth(false);
-    };
-    checkAuth();
-  }, []);
 
   // モーダルを開く関数
   const openModal = () => setIsModalOpen(true);
@@ -43,15 +27,6 @@ function TaskModalContent() {
       setIsModalOpen(true);
     }
   }, [searchParams]);
-
-  if (checkingAuth) {
-    return (
-      <main className="min-h-screen bg-[#FFD700] bg-[radial-gradient(#ffffff_4px,transparent_4px)] [background-size:24px_24px] p-8 flex flex-col items-center justify-center font-sans">
-        <div className="animate-spin h-12 w-12 border-4 border-black border-t-transparent rounded-full mb-4"></div>
-        <p className="font-black text-xl tracking-widest">LOADING...</p>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-[#FFD700] bg-[radial-gradient(#ffffff_4px,transparent_4px)] [background-size:24px_24px] p-8 flex flex-col items-center justify-center font-sans">
@@ -73,25 +48,6 @@ function TaskModalContent() {
           <br />
           「AddTaskModal」コンポーネントが開きます。
         </p>
-
-        {/* ログインしていない場合の警告 */}
-        {!isAuthenticated && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-xl border-2 border-red-200 mb-6 text-sm font-bold">
-            <p className="flex items-center justify-center gap-2 mb-1">
-              <span>⚠️</span> 未ログイン状態です
-            </p>
-            <p className="font-normal mb-2">
-              モーダルは開けますが、保存時にエラーになります。
-            </p>
-            <button
-              type="button"
-              onClick={() => router.push("/login")}
-              className="underline text-red-600 hover:text-red-800"
-            >
-              ログイン画面へ移動
-            </button>
-          </div>
-        )}
 
         {/* モーダルを開くトリガーボタン */}
         <button
