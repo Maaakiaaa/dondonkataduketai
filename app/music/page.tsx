@@ -488,7 +488,16 @@ export default function MusicPage() {
     }
   };
 
-  const handleFinishTask = () => {
+  const handleFinishTask = async () => {
+    // プレイリストの再生を停止
+    if (player) {
+      try {
+        await player.pause();
+      } catch (err) {
+        console.error("Failed to pause player:", err);
+      }
+    }
+
     setShowDeleteConfirm(true);
   };
 
