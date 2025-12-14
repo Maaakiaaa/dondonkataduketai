@@ -14,15 +14,13 @@ export default function NotificationButton() {
   const [swReady, setSwReady] = useState(false);
 
   // 初期処理
-  /**
-   * Fetch the current user from Supabase
-   * and set the user state to the result
-   */
   useEffect(() => {
     // ユーザー取得
-    supabase.auth.getUser().then(({ data }) => {
+    const fetchUser = async () => {
+      const { data } = await supabase.auth.getUser();
       setUser(data.user);
-    });
+    };
+    fetchUser();
 
     // 通知状態
     if ("Notification" in window) {

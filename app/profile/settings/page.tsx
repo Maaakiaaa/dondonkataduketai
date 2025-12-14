@@ -121,13 +121,17 @@ export default function ProfileSettingsPage() {
       if (registration.installing) {
         console.log("⏳ Service Workerのインストールを待機中...");
         await new Promise<void>((resolve) => {
-          const worker = registration.installing!;
-          worker.addEventListener("statechange", () => {
-            if (worker.state === "activated") {
-              console.log("✅ Service Workerがアクティブになりました");
-              resolve();
-            }
-          });
+          const worker = registration.installing;
+          if (worker) {
+            worker.addEventListener("statechange", () => {
+              if (worker.state === "activated") {
+                console.log("✅ Service Workerがアクティブになりました");
+                resolve();
+              }
+            });
+          } else {
+            resolve();
+          }
         });
       }
 
@@ -329,10 +333,12 @@ export default function ProfileSettingsPage() {
         await enableNotification();
         setEnabled(true);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ トグルエラー:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "通知の切り替えに失敗しました";
       alert(
-        `エラー: ${error.message || "通知の切り替えに失敗しました"}\n\nブラウザのコンソールを確認してください（F12キー）`,
+        `エラー: ${errorMessage}\n\nブラウザのコンソールを確認してください（F12キー）`,
       );
     } finally {
       setToggleLoading(false);

@@ -64,6 +64,7 @@ export const addTodo = async (
   dueAt?: string | undefined,
   recurrenceType?: RecurrenceType,
   taskType?: TaskType,
+  tags?: string[],
 ) => {
   const newTodo: NewTodo = {
     title,
@@ -74,6 +75,7 @@ export const addTodo = async (
     due_at: dueAt ?? null,
     recurrence_type: recurrenceType ?? null,
     task_type: taskType ?? "deadline",
+    tags: tags ?? null,
   };
 
   const { data, error } = await supabase
