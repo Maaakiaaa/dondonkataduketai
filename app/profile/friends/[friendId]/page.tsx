@@ -112,10 +112,7 @@ export default function FriendDetailPage() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) {
-          router.push("/login");
-          return;
-        }
+        if (!user) return;
 
         // フレンドシップを確認
         const { data: friendshipData } = await supabase

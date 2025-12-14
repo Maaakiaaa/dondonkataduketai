@@ -96,6 +96,7 @@ function DraggableTask({
             className={`flex-shrink-0 cursor-grab active:cursor-grabbing p-1 rounded ${
               isUrgent ? "hover:bg-white/20" : "hover:bg-gray-100"
             }`}
+            style={{ touchAction: "none" }}
           >
             <svg
               className={`w-4 h-4 ${isUrgent ? "text-white/70" : "text-gray-400"}`}
@@ -394,7 +395,6 @@ export default function TodoPage() {
   const router = useRouter();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
   const [activeDragTodo, setActiveDragTodo] = useState<Todo | null>(null);
@@ -414,15 +414,6 @@ export default function TodoPage() {
 
   useEffect(() => {
     const init = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
-        return;
-      }
-      setUser(session.user);
-
       try {
         const data = await getTodos();
         setTodos(data);
@@ -434,7 +425,7 @@ export default function TodoPage() {
       }
     };
     init();
-  }, [router]);
+  }, []);
 
   const handleToggle = async (id: string, currentStatus: boolean) => {
     try {
