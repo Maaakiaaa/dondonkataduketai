@@ -14,7 +14,11 @@ import {
   FiSkipBack,
   FiSkipForward,
 } from "react-icons/fi";
-import { getTodos, type Todo } from "@/features/todos/api";
+import {
+  getTodos,
+  type Todo,
+  toggleTodoCompletion,
+} from "@/features/todos/api";
 import Frame from "../components/Frame";
 
 interface Track {
@@ -498,6 +502,18 @@ export default function MusicPage() {
       }
     }
 
+    // タスクを完了としてマーク
+    if (selectedTaskId) {
+      try {
+        await toggleTodoCompletion(selectedTaskId, true);
+        // タスクリストを更新
+        await fetchTodos();
+      } catch (err) {
+        console.error("タスクの完了処理に失敗しました:", err);
+        setError("タスクの完了処理に失敗しました");
+      }
+    }
+
     setShowDeleteConfirm(true);
   };
 
@@ -928,52 +944,69 @@ export default function MusicPage() {
 
                   {generatedPlaylist && generatedPlaylist.length > 0 && (
                     <div className="space-y-4 pt-4 border-t-4 border-black border-dashed">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-black text-lg bg-[#FFE66D] px-2 inline-block transform -rotate-2 border-2 border-black">
-                          生成されたリスト ({generatedPlaylist.length}曲)
-                        </h4>
-                        <span className="font-mono font-bold text-sm bg-black text-white px-2 py-1 rounded">
-                          Total:{" "}
-                          {formatDuration(
-                            generatedPlaylist.reduce(
-                              (sum, track) => sum + track.duration_ms,
-                              0,
-                            ),
-                          )}
-                        </span>
-                      </div>
-                      <div className="max-h-80 space-y-2 overflow-y-auto pr-2 custom-scrollbar">
-                        {generatedPlaylist.map((track) => (
-                          <div
-                            key={track.id}
-                            className="flex items-center justify-between rounded-lg border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-transform"
-                          >
-                            <div className="min-w-0">
-                              <div className="font-bold truncate text-sm">
-                                {track.name}
+                      <div className="rounded-xl border-4 border-black bg-[#FFE66D] p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-black text-lg">
+                            プレビュー ({generatedPlaylist.length}曲)
+                          </h4>
+                          <span className="font-mono font-bold text-sm bg-black text-white px-2 py-1 rounded">
+                            Total:{" "}
+                            {formatDuration(
+                              generatedPlaylist.reduce(
+                                (sum, track) => sum + track.duration_ms,
+                                0,
+                              ),
+                            )}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-gray-700 mb-3">
+                          💡
+                          このプレイリストで良ければ保存、気に入らなければ再生成できます
+                        </p>
+                        <div className="max-h-64 space-y-2 overflow-y-auto pr-2 custom-scrollbar">
+                          {generatedPlaylist.map((track) => (
+                            <div
+                              key={track.id}
+                              className="flex items-center justify-between rounded-lg border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-transform"
+                            >
+                              <div className="min-w-0">
+                                <div className="font-bold truncate text-sm">
+                                  {track.name}
+                                </div>
+                                <div className="text-xs font-bold text-gray-500 truncate">
+                                  {track.artists.join(", ")}
+                                </div>
                               </div>
-                              <div className="text-xs font-bold text-gray-500 truncate">
-                                {track.artists.join(", ")}
+                              <div className="font-mono text-xs font-bold whitespace-nowrap ml-2">
+                                {formatDuration(track.duration_ms)}
                               </div>
                             </div>
-                            <div className="font-mono text-xs font-bold whitespace-nowrap ml-2">
-                              {formatDuration(track.duration_ms)}
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleCreatePlaylist}
-                        disabled={playlistLoading || !deviceId}
-                        className="w-full text-lg font-black bg-[#1DB954] text-white border-4 border-black rounded-xl py-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-1 transition-all disabled:bg-gray-400"
-                      >
-                        {playlistLoading
-                          ? "Spotifyと通信中..."
-                          : !deviceId
-                            ? "プレイヤー準備中..."
-                            : "Spotifyに保存して再生 ▶️"}
-                      </button>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={handleGeneratePlaylist}
+                          disabled={playlistLoading}
+                          className="text-sm font-black bg-white text-black border-4 border-black rounded-xl py-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-1 transition-all disabled:bg-gray-400 disabled:shadow-none disabled:translate-y-0"
+                        >
+                          {playlistLoading ? "再生成中..." : "🔄 再生成"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCreatePlaylist}
+                          disabled={playlistLoading || !deviceId}
+                          className="text-sm font-black bg-[#1DB954] text-white border-4 border-black rounded-xl py-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-1 transition-all disabled:bg-gray-400 disabled:shadow-none disabled:translate-y-0"
+                        >
+                          {playlistLoading
+                            ? "通信中..."
+                            : !deviceId
+                              ? "準備中..."
+                              : "✓ 保存して再生"}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </>
