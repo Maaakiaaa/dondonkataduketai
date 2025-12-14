@@ -1,6 +1,6 @@
 // lib/supabase.ts
 
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 // 型定義をインポート
 import type { Database } from "../types/database.types";
 
@@ -8,5 +8,8 @@ import type { Database } from "../types/database.types";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// クライアント作成
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// クライアント作成（Cookieベースのセッション管理）
+export const supabase = createBrowserClient<Database>(
+  supabaseUrl,
+  supabaseAnonKey,
+);
