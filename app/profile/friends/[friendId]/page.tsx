@@ -148,7 +148,10 @@ export default function FriendDetailPage() {
           });
         }
 
-        // サービスロールキーを使わずにフレンドのタスクを取得（RLS適用）
+        // フレンド機能: フレンドのタスクを取得して表示
+        // 注: この機能を使用するには、Supabaseで適切なRLSポリシーを設定してください
+        // フレンドシップが確立されている場合のみ閲覧可能にするポリシーが推奨されます
+
         const { data: todosData, error: todosError } = await supabase
           .from("todos")
           .select("*")
@@ -156,7 +159,6 @@ export default function FriendDetailPage() {
 
         console.log("取得したフレンドのタスク:", todosData);
         console.log("タスク取得エラー:", todosError);
-        console.log("エラー詳細:", JSON.stringify(todosError, null, 2));
 
         if (todosData && todosData.length > 0) {
           // 全タスクを保存
@@ -180,6 +182,8 @@ export default function FriendDetailPage() {
           const completed = allTasks.filter((t) => t.is_completed).length;
           const rate = Math.round((completed / allTasks.length) * 100);
           setCompletionRate(rate);
+        } else {
+          setCompletionRate(0);
         }
       } catch (error) {
         console.error("Error fetching friend data:", error);
