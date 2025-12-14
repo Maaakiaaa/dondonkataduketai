@@ -21,7 +21,10 @@ function TaskModalContent() {
   };
 
   // URL クエリで open=1 がある場合、ページ読み込み時にモーダルを自動で開く
+  // また、id パラメータから編集対象のタスクIDを取得
   const searchParams = useSearchParams();
+  const todoId = searchParams?.get("id") || undefined;
+
   useEffect(() => {
     if (searchParams?.get("open") === "1") {
       setIsModalOpen(true);
@@ -62,8 +65,9 @@ function TaskModalContent() {
       {/* ★ここが重要！
         isModalOpen が true の時だけ AddTaskModal を表示します。
         onClose プロップスには、モーダルを閉じるための関数を渡します。
+        todoId プロップスには、編集対象のタスクIDを渡します（新規作成時はundefined）。
       */}
-      {isModalOpen && <AddTaskModal onClose={closeModal} />}
+      {isModalOpen && <AddTaskModal onClose={closeModal} todoId={todoId} />}
     </main>
   );
 }
