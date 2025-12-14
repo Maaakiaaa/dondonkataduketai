@@ -100,7 +100,7 @@ async function checkAndSendNotifications() {
             },
             JSON.stringify({
               title: "どぅんどぅん",
-              body: "おはようございます！ ☀️今日のTODOを確認しよう！",
+              body: "おはよう！ ☀️今日のTODOを確認しよう！",
               icon: "/dolundolun.png",
               data: { url: "/todo" },
             }),
