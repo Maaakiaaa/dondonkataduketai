@@ -144,6 +144,14 @@ export default function MusicPage() {
     null,
   );
   const [isPaused, setIsPaused] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<{
+    taskId: string;
+    taskTitle: string;
+    estimatedTime: number;
+    dueAt: string | null;
+    reason: string;
+  } | null>(null);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
   const playerRef = useRef<SpotifyPlayer | null>(null);
 
   const fetchTracks = useCallback(async () => {
@@ -338,11 +346,46 @@ export default function MusicPage() {
 
   const handleTaskSelect = (taskId: string) => {
     setSelectedTaskId(taskId);
+    setAiSuggestion(null); // 手動選択時は提案をクリア
     if (taskId) {
       const selectedTask = todos.find((todo) => todo.id === taskId);
       if (selectedTask) {
         setDurationMinutes(selectedTask.estimated_time);
       }
+    }
+  };
+
+  const handleGetAiSuggestion = async () => {
+    setSuggestionLoading(true);
+    setError(null);
+    setAiSuggestion(null);
+
+    try {
+      const response = await fetch("/music/api/suggest-task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: todos }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || "タスク提案に失敗しました");
+      }
+
+      const data = await response.json();
+
+      if (data.suggestion) {
+        setAiSuggestion(data.suggestion);
+        // 提案されたタスクを自動選択
+        setSelectedTaskId(data.suggestion.taskId);
+        setDurationMinutes(data.suggestion.estimatedTime);
+      } else {
+        setError(data.message || "提案できるタスクがありません");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setSuggestionLoading(false);
     }
   };
 
@@ -839,12 +882,55 @@ export default function MusicPage() {
                             </svg>
                           </div>
                         </div>
-                        {selectedTaskId && (
+                        {selectedTaskId && !aiSuggestion && (
                           <p className="mt-2 text-xs font-black text-[#4ECDC4] bg-black inline-block px-2 py-1 rounded text-white transform rotate-1">
                             目標タイム(プレイリストの長さ): {durationMinutes}分
                           </p>
                         )}
+                        <button
+                          type="button"
+                          onClick={handleGetAiSuggestion}
+                          disabled={suggestionLoading || todos.length === 0}
+                          className="mt-2 text-xs font-black bg-gradient-to-r from-[#9D4EDD] to-[#FF6B6B] text-white border-2 border-black rounded-lg px-3 py-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {suggestionLoading
+                            ? "AI分析中..."
+                            : "🤖 AIにおすすめタスクを聞く"}
+                        </button>
                       </div>
+
+                      {aiSuggestion && (
+                        <div className="rounded-xl border-4 border-[#9D4EDD] bg-gradient-to-br from-[#9D4EDD]/10 to-[#FF6B6B]/10 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                          <div className="flex items-start gap-2 mb-2">
+                            <span className="text-2xl">🤖</span>
+                            <div className="flex-1">
+                              <p className="text-xs font-black text-[#9D4EDD] mb-1">
+                                AIのおすすめ
+                              </p>
+                              <p className="font-black text-base mb-1">
+                                {aiSuggestion.taskTitle}
+                              </p>
+                              <p className="text-xs font-bold text-gray-600 mb-2">
+                                所要時間: {aiSuggestion.estimatedTime}分
+                                {aiSuggestion.dueAt && (
+                                  <>
+                                    {" "}
+                                    | 期限:{" "}
+                                    {new Date(
+                                      aiSuggestion.dueAt,
+                                    ).toLocaleDateString("ja-JP")}
+                                  </>
+                                )}
+                              </p>
+                              <div className="bg-white border-2 border-black rounded-lg p-2">
+                                <p className="text-xs font-bold text-gray-700">
+                                  💡 {aiSuggestion.reason}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <fieldset className="border-2 border-black rounded-lg p-3 relative">
                         <legend className="text-sm font-black px-2 bg-white absolute -top-3 left-2 border-2 border-black rounded">
