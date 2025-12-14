@@ -114,6 +114,11 @@ export default function MusicPage() {
   const [createdPlaylistUri, setCreatedPlaylistUri] = useState<string | null>(
     null,
   );
+  const [createdPlaylistId, setCreatedPlaylistId] = useState<string | null>(
+    null,
+  );
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showNextAction, setShowNextAction] = useState(false);
   const [_isPlaying, setIsPlaying] = useState(false);
   const [player, setPlayer] = useState<SpotifyPlayer | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -390,6 +395,7 @@ export default function MusicPage() {
       const data = await response.json();
       setCreatedPlaylistUrl(data.playlistUrl);
       setCreatedPlaylistUri(data.playlistUri);
+      setCreatedPlaylistId(data.playlistId);
       setGeneratedPlaylist(null);
 
       // プレイリストを作成したら自動的に再生
@@ -471,6 +477,56 @@ export default function MusicPage() {
     }
   };
 
+  const handleFinishTask = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeletePlaylist = async () => {
+    if (!createdPlaylistId) {
+      setShowDeleteConfirm(false);
+      setShowNextAction(true);
+      return;
+    }
+
+    try {
+      const response = await fetch("/music/api/delete-playlist", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playlistId: createdPlaylistId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("プレイリストの削除に失敗しました");
+      }
+
+      setShowDeleteConfirm(false);
+      setShowNextAction(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+      setShowDeleteConfirm(false);
+      setShowNextAction(true);
+    }
+  };
+
+  const handleKeepPlaylist = () => {
+    setShowDeleteConfirm(false);
+    setShowNextAction(true);
+  };
+
+  const handleGoHome = () => {
+    window.location.href = "/";
+  };
+
+  const handleCreateAnother = () => {
+    setCreatedPlaylistUrl(null);
+    setCreatedPlaylistUri(null);
+    setCreatedPlaylistId(null);
+    setShowNextAction(false);
+    setSelectedTaskId("");
+    setSelectedGenre("");
+    setGeneratedPlaylist(null);
+  };
+
   return (
     <Frame active="music">
       <div className="flex flex-col gap-3">
@@ -547,23 +603,79 @@ export default function MusicPage() {
 
             {createdPlaylistUrl ? (
               <div className="space-y-3">
-                <div className="rounded-md border border-green-500 bg-green-50 p-4">
-                  <p className="mb-2 text-sm font-semibold text-green-700">
-                    ✅ プレイリストを作成して再生を開始しました！
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    <a
-                      href={createdPlaylistUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-center text-sm text-blue-600 hover:underline"
-                    >
-                      Spotifyアプリで開く →
-                    </a>
+                {showDeleteConfirm ? (
+                  <div className="rounded-md border border-red-500 bg-red-50 p-4">
+                    <p className="mb-3 text-sm font-semibold text-red-700">
+                      作成したプレイリストを削除しますか？
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleDeletePlaylist}
+                        className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+                      >
+                        はい
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleKeepPlaylist}
+                        className="flex-1 rounded-md bg-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-300"
+                      >
+                        いいえ
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : showNextAction ? (
+                  <div className="rounded-md border border-blue-500 bg-blue-50 p-4">
+                    <p className="mb-3 text-sm font-semibold text-blue-700">
+                      お疲れさまでした！！
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={handleGoHome}
+                        className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                      >
+                        ホーム画面に戻る
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCreateAnother}
+                        className="w-full rounded-md bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700"
+                      >
+                        別のタスクをやる
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-md border border-green-500 bg-green-50 p-4">
+                      <p className="mb-2 text-sm font-semibold text-green-700">
+                        ✅ プレイリストを作成して再生を開始しました！
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <a
+                          href={createdPlaylistUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-center text-sm text-blue-600 hover:underline"
+                        >
+                          Spotifyアプリで開く →
+                        </a>
+                      </div>
+                    </div>
 
-                {currentTrack && (
+                    <button
+                      type="button"
+                      onClick={handleFinishTask}
+                      className="w-full rounded-md bg-orange-600 px-4 py-2 text-white hover:bg-orange-700"
+                    >
+                      タスク終了
+                    </button>
+                  </>
+                )}
+
+                {!showDeleteConfirm && !showNextAction && currentTrack && (
                   <div className="rounded-md border bg-white p-4 shadow-sm">
                     <div className="mb-3">
                       <p className="text-xs text-zinc-500">再生中</p>
