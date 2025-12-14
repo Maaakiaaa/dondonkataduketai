@@ -21,13 +21,14 @@ import {
   FiChevronRight,
   FiChevronUp,
 } from "react-icons/fi";
-import { supabase } from "@/app/lib/supabase";
 import {
   getTodos,
   type Todo,
   toggleTodoCompletion,
   updateTodo,
 } from "@/features/todos/api";
+import { getTagColors } from "@/features/todos/api/tagColors";
+import { CalendarModal } from "@/features/todos/components/CalendarModal";
 import Frame from "../components/Frame";
 
 // スケジュールの時間範囲設定
@@ -59,11 +60,13 @@ function DraggableTask({
   isUrgent,
   onEdit,
   onToggle,
+  tagColors,
 }: {
   todo: Todo;
   isUrgent: boolean;
   onEdit: () => void;
   onToggle: () => void;
+  tagColors: Record<string, string>;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: todo.id,
@@ -117,7 +120,7 @@ function DraggableTask({
             <h3 className="font-black text-base leading-tight mb-1">
               {todo.title}
             </h3>
-            <div className="flex gap-2 text-[10px] font-bold flex-wrap">
+            <div className="flex gap-2 text-[10px] font-bold flex-wrap items-center">
               {todo.due_at && (
                 <span
                   className={`px-2 py-0.5 rounded border ${
@@ -145,6 +148,34 @@ function DraggableTask({
                 >
                   {todo.estimated_time}分
                 </span>
+              )}
+              {/* タグ表示 */}
+              {todo.tags && todo.tags.length > 0 && (
+                <div className="flex gap-1 flex-wrap">
+                  {todo.tags.map((tag) => {
+                    const tagColor = tagColors[tag] || "#9b5de5";
+                    return (
+                      <span
+                        key={tag}
+                        className="px-2 py-0.5 rounded-full border text-[9px] font-bold"
+                        style={
+                          isUrgent
+                            ? {
+                                backgroundColor: "rgba(255,255,255,0.2)",
+                                borderColor: "rgba(255,255,255,0.4)",
+                              }
+                            : {
+                                backgroundColor: `${tagColor}15`,
+                                borderColor: tagColor,
+                                color: tagColor,
+                              }
+                        }
+                      >
+                        {tag}
+                      </span>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
@@ -401,6 +432,8 @@ export default function TodoPage() {
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const [previewTime, setPreviewTime] = useState<Date | null>(null);
   const [overflowWarning, setOverflowWarning] = useState<number | null>(null); // はみ出し分数
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [tagColors, setTagColors] = useState<Record<string, string>>({});
 
   // D&Dセンサー設定（タッチとポインター両対応）
   const sensors = useSensors(
@@ -415,8 +448,9 @@ export default function TodoPage() {
   useEffect(() => {
     const init = async () => {
       try {
-        const data = await getTodos();
+        const [data, colors] = await Promise.all([getTodos(), getTagColors()]);
         setTodos(data);
+        setTagColors(colors);
       } catch (e) {
         console.error(e);
         alert("データ取得失敗");
@@ -431,7 +465,8 @@ export default function TodoPage() {
     try {
       const updated = await toggleTodoCompletion(id, !currentStatus);
       setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
-    } catch (e) {
+    } catch (error) {
+      console.error("Failed to toggle completion:", error);
       alert("更新失敗");
     }
   };
@@ -704,7 +739,8 @@ export default function TodoPage() {
 
     try {
       await updateTodo(todo.id, { start_at: newStartAtISO });
-    } catch (e) {
+    } catch (error) {
+      console.error("Failed to schedule todo:", error);
       // エラー時は元の値にロールバック
       setTodos((prev) =>
         prev.map((t) =>
@@ -742,7 +778,8 @@ export default function TodoPage() {
 
     try {
       await updateTodo(todo.id, { start_at: null });
-    } catch (e) {
+    } catch (error) {
+      console.error("Failed to unschedule todo:", error);
       // エラー時はロールバック
       setTodos((prev) =>
         prev.map((t) =>
@@ -785,6 +822,7 @@ export default function TodoPage() {
             </button>
             <button
               type="button"
+              onClick={() => setShowCalendarModal(true)}
               className="flex-1 bg-white border-2 border-black rounded-full py-2 px-4 font-bold text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-[2px] active:shadow-none transition-all hover:bg-gray-50"
             >
               カレンダー
@@ -876,17 +914,40 @@ export default function TodoPage() {
                           <h3 className="font-black text-base leading-tight mb-1 break-words text-gray-900">
                             {todo.title}
                           </h3>
-                          {todo.estimated_time && (
-                            <span
-                              className="inline-block text-[10px] font-bold px-2 py-0.5 rounded border text-gray-700"
-                              style={{
-                                backgroundColor: `${barColor}30`,
-                                borderColor: barColor,
-                              }}
-                            >
-                              {todo.estimated_time}分
-                            </span>
-                          )}
+                          <div className="flex gap-2 flex-wrap items-center">
+                            {todo.estimated_time && (
+                              <span
+                                className="inline-block text-[10px] font-bold px-2 py-0.5 rounded border text-gray-700"
+                                style={{
+                                  backgroundColor: `${barColor}30`,
+                                  borderColor: barColor,
+                                }}
+                              >
+                                {todo.estimated_time}分
+                              </span>
+                            )}
+                            {/* タグ表示 */}
+                            {todo.tags && todo.tags.length > 0 && (
+                              <div className="flex gap-1 flex-wrap">
+                                {todo.tags.map((tag) => {
+                                  const tagColor = tagColors[tag] || "#9b5de5";
+                                  return (
+                                    <span
+                                      key={tag}
+                                      className="inline-block px-2 py-0.5 rounded-full border text-[9px] font-bold"
+                                      style={{
+                                        backgroundColor: `${tagColor}15`,
+                                        borderColor: tagColor,
+                                        color: tagColor,
+                                      }}
+                                    >
+                                      {tag}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Actions */}
@@ -989,6 +1050,7 @@ export default function TodoPage() {
                       router.push(`/todo/task-modal?id=${todo.id}&open=1`)
                     }
                     onToggle={() => handleToggle(todo.id, false)}
+                    tagColors={tagColors}
                   />
                 );
               })}
@@ -1019,7 +1081,7 @@ export default function TodoPage() {
                           <h3 className="font-black text-base leading-tight mb-1 text-gray-500 line-through">
                             {todo.title}
                           </h3>
-                          <div className="flex gap-2 text-[10px] font-bold flex-wrap">
+                          <div className="flex gap-2 text-[10px] font-bold flex-wrap items-center">
                             {dueDate && (
                               <span className="px-2 py-0.5 rounded border bg-gray-100 border-gray-300 text-gray-500">
                                 {dueDate.toLocaleString("ja-JP", {
@@ -1035,6 +1097,19 @@ export default function TodoPage() {
                               <span className="px-2 py-0.5 rounded border bg-gray-100 border-gray-300 text-gray-500">
                                 {todo.estimated_time}分
                               </span>
+                            )}
+                            {/* タグ表示 */}
+                            {todo.tags && todo.tags.length > 0 && (
+                              <div className="flex gap-1 flex-wrap">
+                                {todo.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="inline-block px-2 py-0.5 rounded-full border text-[9px] font-bold bg-gray-100 border-gray-300 text-gray-500"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1079,6 +1154,15 @@ export default function TodoPage() {
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* Calendar Modal */}
+      {showCalendarModal && (
+        <CalendarModal
+          onClose={() => setShowCalendarModal(false)}
+          todos={todos}
+          onDateSelect={(date) => setSelectedDate(date)}
+        />
+      )}
     </Frame>
   );
 }
