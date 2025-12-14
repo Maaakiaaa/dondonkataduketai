@@ -14,7 +14,11 @@ import {
   FiSkipBack,
   FiSkipForward,
 } from "react-icons/fi";
-import { getTodos, type Todo } from "@/features/todos/api";
+import {
+  getTodos,
+  type Todo,
+  toggleTodoCompletion,
+} from "@/features/todos/api";
 import Frame from "../components/Frame";
 
 interface Track {
@@ -495,6 +499,18 @@ export default function MusicPage() {
         await player.pause();
       } catch (err) {
         console.error("Failed to pause player:", err);
+      }
+    }
+
+    // タスクを完了としてマーク
+    if (selectedTaskId) {
+      try {
+        await toggleTodoCompletion(selectedTaskId, true);
+        // タスクリストを更新
+        await fetchTodos();
+      } catch (err) {
+        console.error("タスクの完了処理に失敗しました:", err);
+        setError("タスクの完了処理に失敗しました");
       }
     }
 
