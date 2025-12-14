@@ -28,6 +28,7 @@ import {
   toggleTodoCompletion,
   updateTodo,
 } from "@/features/todos/api";
+import { CalendarModal } from "@/features/todos/components/CalendarModal";
 import Frame from "../components/Frame";
 
 // スケジュールの時間範囲設定
@@ -401,6 +402,7 @@ export default function TodoPage() {
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const [previewTime, setPreviewTime] = useState<Date | null>(null);
   const [overflowWarning, setOverflowWarning] = useState<number | null>(null); // はみ出し分数
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
 
   // D&Dセンサー設定（タッチとポインター両対応）
   const sensors = useSensors(
@@ -785,6 +787,7 @@ export default function TodoPage() {
             </button>
             <button
               type="button"
+              onClick={() => setShowCalendarModal(true)}
               className="flex-1 bg-white border-2 border-black rounded-full py-2 px-4 font-bold text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-[2px] active:shadow-none transition-all hover:bg-gray-50"
             >
               カレンダー
@@ -1079,6 +1082,15 @@ export default function TodoPage() {
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* Calendar Modal */}
+      {showCalendarModal && (
+        <CalendarModal
+          onClose={() => setShowCalendarModal(false)}
+          todos={todos}
+          onDateSelect={(date) => setSelectedDate(date)}
+        />
+      )}
     </Frame>
   );
 }
