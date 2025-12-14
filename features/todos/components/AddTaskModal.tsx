@@ -7,13 +7,21 @@ import {
   getOverlappingTodos,
   type RecurrenceType,
   type Todo,
+  updateTodo,
 } from "@/features/todos/api";
 import { BookingWarningDialog } from "./BookingWarningDialog";
 
-export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
+export const AddTaskModal = ({
+  onClose,
+  todoId,
+}: {
+  onClose: () => void;
+  todoId?: string;
+}) => {
   // 入力ステート
   const [title, setTitle] = useState("");
   const [estimated, setEstimated] = useState(45);
+  const [loading, setLoading] = useState(false);
 
   // ユニークID生成
   const taskTitleId = useId();
@@ -32,8 +40,61 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
   const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [overlappingTodos, setOverlappingTodos] = useState<Todo[]>([]);
 
-  // 初期値セット（次の00分）
+  // 編集モードの場合、既存のタスク情報を読み込む
   useEffect(() => {
+    const loadTodo = async () => {
+      if (!todoId) return;
+
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("todos")
+          .select("*")
+          .eq("id", todoId)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setTitle(data.title || "");
+          setEstimated(data.estimated_time || 45);
+          setRecurrence(data.recurrence_type as RecurrenceType);
+
+          // 開始時刻または期限日時を設定
+          if (data.start_at) {
+            setDateMode("start");
+            const startDate = new Date(data.start_at);
+            const isoString = new Date(
+              startDate.getTime() - startDate.getTimezoneOffset() * 60000,
+            )
+              .toISOString()
+              .slice(0, 16);
+            setSelectedDate(isoString);
+          } else if (data.due_at) {
+            setDateMode("due");
+            const dueDate = new Date(data.due_at);
+            const isoString = new Date(
+              dueDate.getTime() - dueDate.getTimezoneOffset() * 60000,
+            )
+              .toISOString()
+              .slice(0, 16);
+            setSelectedDate(isoString);
+          }
+        }
+      } catch (e) {
+        console.error("タスクの読み込みエラー:", e);
+        alert("タスクの読み込みに失敗しました");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTodo();
+  }, [todoId]);
+
+  // 初期値セット（次の00分）- 新規作成時のみ
+  useEffect(() => {
+    if (todoId) return; // 編集モードの場合はスキップ
+
     const now = new Date();
     now.setMinutes(0, 0, 0);
     now.setHours(now.getHours() + 1);
@@ -41,7 +102,7 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
       .toISOString()
       .slice(0, 16);
     setSelectedDate(isoString);
-  }, []);
+  }, [todoId]);
 
   // 終了時間計算
   useEffect(() => {
@@ -65,8 +126,8 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("ログインしてください");
 
-      // 開始日時モードの場合、重複チェックを実行
-      if (dateMode === "start" && selectedDate) {
+      // 開始日時モードの場合、重複チェックを実行（新規作成時のみ）
+      if (dateMode === "start" && selectedDate && !todoId) {
         const startAt = new Date(selectedDate);
         const overlapping = await getOverlappingTodos(
           user.id,
@@ -97,17 +158,35 @@ export const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("ログインしてください");
 
-      await addTodo(
-        title,
-        user.id,
-        estimated,
-        dateMode === "start" ? new Date(selectedDate).toISOString() : undefined,
-        dateMode === "due" ? new Date(selectedDate).toISOString() : undefined,
-        recurrence,
-        dateMode === "start" ? "scheduled" : "deadline",
-      );
+      if (todoId) {
+        // 編集モード: 既存のタスクを更新
+        await updateTodo(todoId, {
+          title,
+          estimated_time: estimated,
+          start_at:
+            dateMode === "start" ? new Date(selectedDate).toISOString() : null,
+          due_at:
+            dateMode === "due" ? new Date(selectedDate).toISOString() : null,
+          recurrence_type: recurrence,
+          task_type: dateMode === "start" ? "scheduled" : "deadline",
+        });
+        alert("更新しました！");
+      } else {
+        // 新規作成モード
+        await addTodo(
+          title,
+          user.id,
+          estimated,
+          dateMode === "start"
+            ? new Date(selectedDate).toISOString()
+            : undefined,
+          dateMode === "due" ? new Date(selectedDate).toISOString() : undefined,
+          recurrence,
+          dateMode === "start" ? "scheduled" : "deadline",
+        );
+        alert("保存しました！");
+      }
 
-      alert("保存しました！");
       onClose();
     } catch (e) {
       alert("エラー: " + (e as Error).message);
