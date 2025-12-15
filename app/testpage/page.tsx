@@ -1,6 +1,19 @@
 // app/testpage/page.tsx
-import NotificationButton from "../components/NotificationButton";
+"use client";
+
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
+
+// SSRを無効にして動的インポート
+const NotificationButton = dynamic(
+  () => import("../components/NotificationButton"),
+  { ssr: false, loading: () => <p>読み込み中...</p> },
+);
 
 export default function TestPage() {
-  return <NotificationButton />;
+  return (
+    <Suspense fallback={<p>読み込み中...</p>}>
+      <NotificationButton />
+    </Suspense>
+  );
 }

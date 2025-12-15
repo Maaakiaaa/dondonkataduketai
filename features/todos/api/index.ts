@@ -153,7 +153,12 @@ export const toggleTodoCompletion = async (
 
   return updatedTodo as Todo;
 };
+// タスクを削除する
+export const deleteTodo = async (id: string) => {
+  const { error } = await supabase.from("todos").delete().eq("id", id);
 
+  if (error) throw new Error(error.message);
+};
 // タスクを更新する（汎用）
 export const updateTodo = async (
   id: string,

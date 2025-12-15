@@ -23,7 +23,7 @@ export default function NotificationButton() {
     fetchUser();
 
     // 通知状態
-    if ("Notification" in window) {
+    if (typeof window !== "undefined" && "Notification" in window) {
       setPermission(Notification.permission);
     }
 
@@ -103,6 +103,9 @@ export default function NotificationButton() {
 
   // Base64 → Uint8Array
   const urlBase64ToUint8Array = (base64String: string) => {
+    if (typeof window === "undefined") {
+      throw new Error("window is not available");
+    }
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding)
       .replace(/-/g, "+")
@@ -111,7 +114,7 @@ export default function NotificationButton() {
     return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
   };
 
-  if (!("Notification" in window)) {
+  if (typeof window === "undefined" || !("Notification" in window)) {
     return <p>このブラウザは通知非対応</p>;
   }
 
