@@ -29,6 +29,193 @@ function isWithinTimeRange(
   return diff <= 5;
 }
 
+// 期限30分前の通知をチェック
+async function checkDeadlineNotifications() {
+  try {
+    const now = new Date();
+    const in30Minutes = new Date(now.getTime() + 30 * 60 * 1000);
+    const in25Minutes = new Date(now.getTime() + 25 * 60 * 1000);
+
+    // 25分後〜30分後の間に期限が来るタスクを取得
+    const { data: upcomingTasks, error: tasksError } = await supabase
+      .from("todos")
+      .select("*, profiles(id)")
+      .eq("is_completed", false)
+      .gte("due_at", in25Minutes.toISOString())
+      .lte("due_at", in30Minutes.toISOString());
+
+    if (tasksError) {
+      console.error("タスク取得エラー:", tasksError);
+      return;
+    }
+
+    if (!upcomingTasks || upcomingTasks.length === 0) {
+      return;
+    }
+
+    console.log(`⏰ ${upcomingTasks.length}件の期限間近タスク`);
+
+    for (const task of upcomingTasks) {
+      // ユーザーのサブスクリプション取得
+      const { data: subscriptions } = await supabase
+        .from("push_subscriptions")
+        .select("*")
+        .eq("user_id", task.user_id);
+
+      if (!subscriptions || subscriptions.length === 0) continue;
+
+      const dueDate = new Date(task.due_at);
+      const timeStr = dueDate.toLocaleTimeString("ja-JP", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      for (const sub of subscriptions) {
+        try {
+          await webpush.sendNotification(
+            {
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: sub.p256dh,
+                auth: sub.auth,
+              },
+            },
+            JSON.stringify({
+              title: "⏰ タスク期限が近づいています！",
+              body: `「${task.title}」の期限は ${timeStr} です`,
+              icon: "/dolundolun.png",
+              badge: "/dolundolun.png",
+              tag: `deadline-${task.id}`,
+              data: { url: "/todo", taskId: task.id },
+            }),
+          );
+          console.log(`✅ 期限通知送信: ${task.title} (${task.user_id})`);
+        } catch (error) {
+          console.error("期限通知送信失敗:", error);
+          if (error.statusCode === 410) {
+            await supabase
+              .from("push_subscriptions")
+              .delete()
+              .eq("endpoint", sub.endpoint);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("期限通知チェックエラー:", error);
+  }
+}
+
+// スマート通知: ユーザーの作業パターンに基づく通知
+async function checkSmartNotifications() {
+  try {
+    const now = new Date();
+    const jstOffset = 9 * 60;
+    const jstTime = new Date(now.getTime() + jstOffset * 60 * 1000);
+    const currentHour = jstTime.getUTCHours();
+
+    // 全ユーザーの作業履歴を取得
+    const { data: allUsers, error: usersError } = await supabase
+      .from("profiles")
+      .select("id");
+
+    if (usersError || !allUsers) return;
+
+    for (const user of allUsers) {
+      // ユーザーの完了履歴から好みの作業時間帯を分析
+      const { data: completionHistory } = await supabase
+        .from("task_completion_history")
+        .select("completed_hour")
+        .eq("user_id", user.id)
+        .order("completed_at", { ascending: false })
+        .limit(50);
+
+      if (!completionHistory || completionHistory.length < 5) continue;
+
+      // 最頻出の作業時間帯を計算
+      const hourCounts = {};
+      for (const h of completionHistory) {
+        hourCounts[h.completed_hour] = (hourCounts[h.completed_hour] || 0) + 1;
+      }
+
+      const preferredHours = Object.entries(hourCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3)
+        .map(([hour]) => parseInt(hour));
+
+      // 現在時刻が好みの作業時間帯なら通知
+      if (preferredHours.includes(currentHour)) {
+        // 未完了タスクを確認
+        const { data: incompleteTasks } = await supabase
+          .from("todos")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("is_completed", false)
+          .limit(1);
+
+        if (incompleteTasks && incompleteTasks.length > 0) {
+          // サブスクリプション取得
+          const { data: subscriptions } = await supabase
+            .from("push_subscriptions")
+            .select("*")
+            .eq("user_id", user.id);
+
+          if (!subscriptions || subscriptions.length === 0) continue;
+
+          // 今日既にスマート通知を送ったかチェック
+          const today = jstTime.toISOString().split("T")[0];
+          const lastSmartNotif =
+            subscriptions[0].last_smart_notification?.split("T")[0];
+
+          if (lastSmartNotif === today) continue;
+
+          for (const sub of subscriptions) {
+            try {
+              await webpush.sendNotification(
+                {
+                  endpoint: sub.endpoint,
+                  keys: {
+                    p256dh: sub.p256dh,
+                    auth: sub.auth,
+                  },
+                },
+                JSON.stringify({
+                  title: "🎯 いつもの時間だよ！",
+                  body: `${currentHour}時台はあなたがよく作業する時間です。未完了タスクがあります！`,
+                  icon: "/dolundolun.png",
+                  badge: "/dolundolun.png",
+                  tag: "smart-notification",
+                  data: { url: "/todo" },
+                }),
+              );
+
+              // 送信記録
+              await supabase
+                .from("push_subscriptions")
+                .update({ last_smart_notification: jstTime.toISOString() })
+                .eq("id", sub.id);
+
+              console.log(
+                `🧠 スマート通知送信: ${user.id} (${currentHour}時台)`,
+              );
+            } catch (error) {
+              console.error("スマート通知送信失敗:", error);
+              if (error.statusCode === 410) {
+                await supabase
+                  .from("push_subscriptions")
+                  .delete()
+                  .eq("endpoint", sub.endpoint);
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("スマート通知チェックエラー:", error);
+  }
+}
+
 async function checkAndSendNotifications() {
   try {
     // 日本時間で計算
@@ -43,6 +230,12 @@ async function checkAndSendNotifications() {
     console.log(
       `[${now.toISOString()}] 日本時間: ${currentHour}:${currentMinute.toString().padStart(2, "0")}`,
     );
+
+    // 期限30分前通知をチェック
+    await checkDeadlineNotifications();
+
+    // スマート通知をチェック
+    await checkSmartNotifications();
 
     // 全てのサブスクリプションを取得
     const { data: subscriptions, error } = await supabase

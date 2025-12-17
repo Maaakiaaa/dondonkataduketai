@@ -103,6 +103,27 @@ export const toggleTodoCompletion = async (
 
   if (error) throw new Error(error.message);
 
+  // 完了時に履歴を記録
+  if (isCompleted && updatedTodo) {
+    const now = new Date();
+    const completedHour = now.getHours();
+    const wasOverdue = updatedTodo.due_at
+      ? new Date(updatedTodo.due_at) < now
+      : false;
+
+    await supabase.from("task_completion_history").insert({
+      user_id: updatedTodo.user_id,
+      task_id: updatedTodo.id,
+      task_title: updatedTodo.title,
+      task_type: updatedTodo.task_type,
+      tags: updatedTodo.tags,
+      estimated_time: updatedTodo.estimated_time,
+      completed_at: now.toISOString(),
+      completed_hour: completedHour,
+      was_overdue: wasOverdue,
+    });
+  }
+
   // 2. 繰り返し処理（完了時のみ）
   if (isCompleted && updatedTodo.recurrence_type) {
     const baseDate = updatedTodo.start_at || updatedTodo.due_at;

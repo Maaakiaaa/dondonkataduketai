@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { FiAlertCircle, FiClock, FiPlayCircle } from "react-icons/fi";
 import { getCurrentUser } from "@/features/auth/api";
 import { getAchievementRate, getFriends } from "@/features/friendship/api";
@@ -33,14 +33,17 @@ const getTomorrowStart = () => {
 };
 
 export default function Home() {
+  const modalTitleId = useId();
   const [myTasks, setMyTasks] = useState<Todo[]>([]);
   const [friendStatuses, setFriendStatuses] = useState<FriendStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const [aiReminder, setAiReminder] = useState<{
     task: Todo;
     reason: string;
   } | null>(null);
   const [showAiReminder, setShowAiReminder] = useState(false);
+  const [loadingAi, setLoadingAi] = useState(false);
 
   const handleToggle = async (id: string, currentStatus: boolean) => {
     try {
@@ -71,11 +74,16 @@ export default function Home() {
           return;
         }
 
-        // 1. 自分のタスク取得 & フィルタリング
-        const allTodos = await getTodos();
-        // 今日の0時0分0秒
+        setUserId(user.id);
+
+        // 高速化: タスクとフレンド情報を並列取得
+        const [allTodos, friends] = await Promise.all([
+          getTodos(),
+          getFriends(user.id),
+        ]);
+
+        // 1. 自分のタスク フィルタリング & ソート
         const todayStart = getTodayStart();
-        // 明日の0時0分0秒
         const tomorrowStart = getTomorrowStart();
 
         const filteredTodos = allTodos.filter((todo) => {
@@ -106,7 +114,6 @@ export default function Home() {
         setMyTasks(filteredTodos);
 
         // 2. フレンドの達成率取得
-        const friends = await getFriends(user.id);
         const statuses = await Promise.all(
           friends.map(async (f) => {
             const rate = await getAchievementRate(f.profile.id);
@@ -123,37 +130,10 @@ export default function Home() {
         statuses.sort((a, b) => b.rate - a.rate);
         setFriendStatuses(statuses);
 
-        // 3. AI優先タスク取得（未完了タスクのみ）
-        const incompleteTasks = filteredTodos.filter((t) => !t.is_completed);
-        console.log("🤖 未完了タスク数:", incompleteTasks.length);
-
-        if (incompleteTasks.length > 0) {
-          try {
-            console.log("🤖 AIに優先タスクを問い合わせ中...");
-            const aiRes = await fetch("/api/ai/priority-task", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ tasks: incompleteTasks }),
-            });
-
-            if (aiRes.ok) {
-              const aiData = await aiRes.json();
-              console.log("🤖 AI推奨タスク:", aiData);
-              setAiReminder(aiData);
-              setShowAiReminder(true);
-              console.log("🤖 リマインドを表示します");
-            } else {
-              console.error("🤖 AI API エラー:", await aiRes.text());
-            }
-          } catch (error) {
-            console.error("🤖 AI優先タスク取得エラー:", error);
-          }
-        } else {
-          console.log("🤖 未完了タスクがないため、AIリマインドは表示しません");
-        }
+        // 画面表示を優先（ローディング終了）
+        setLoading(false);
       } catch (error) {
         console.error("Failed to fetch data", error);
-      } finally {
         setLoading(false);
       }
     };
@@ -161,24 +141,68 @@ export default function Home() {
     fetchData();
   }, []);
 
+  const handleAiRecommendation = async () => {
+    const incompleteTasks = myTasks.filter((t) => !t.is_completed);
+
+    if (incompleteTasks.length === 0) {
+      alert("未完了のタスクがありません 🎉");
+      return;
+    }
+
+    if (!userId) {
+      alert("ユーザー情報が取得できません");
+      return;
+    }
+
+    setLoadingAi(true);
+    try {
+      const aiRes = await fetch("/api/ai/priority-task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: incompleteTasks, userId }),
+      });
+
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        setAiReminder(aiData);
+        setShowAiReminder(true);
+      } else {
+        throw new Error("AI API エラー");
+      }
+    } catch (error) {
+      console.error("🤖 AI優先タスク取得エラー:", error);
+      alert("AIのおすすめ取得に失敗しました");
+    } finally {
+      setLoadingAi(false);
+    }
+  };
+
   return (
     <>
-      {/* AIリマインド（Frameの外側、画面最上部） */}
+      {/* AIリマインドモーダル */}
       {showAiReminder && aiReminder && (
         <div
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-9999 w-[90%] max-w-md"
-          style={{
-            animation: "slideDown 0.3s ease-out",
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={modalTitleId}
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowAiReminder(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setShowAiReminder(false);
           }}
         >
-          <div className="bg-linear-to-r from-[#9b5de5] to-[#6f42c1] text-white p-5 rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative">
-            {/* 閉じるボタン */}
+          <div
+            role="document"
+            className="bg-linear-to-r from-[#9b5de5] to-[#6f42c1] text-white p-6 rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            style={{
+              animation: "slideDown 0.3s ease-out",
+            }}
+          >
             <button
               type="button"
-              onClick={() => {
-                setShowAiReminder(false);
-                console.log("🤖 リマインドを閉じました");
-              }}
+              onClick={() => setShowAiReminder(false)}
               className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-white/20 hover:bg-white/30 rounded-full border-2 border-white/50 transition-all active:scale-95"
               aria-label="閉じる"
             >
@@ -190,7 +214,10 @@ export default function Home() {
             <div className="flex items-start gap-3 pr-8">
               <div className="text-4xl">🤖</div>
               <div className="flex-1">
-                <div className="font-black text-base mb-1 opacity-90">
+                <div
+                  id={modalTitleId}
+                  className="font-black text-base mb-1 opacity-90"
+                >
                   AI おすすめタスク
                 </div>
                 <div className="font-bold text-lg mb-2">
@@ -209,9 +236,19 @@ export default function Home() {
         <div className="flex flex-col gap-8">
           {/* 自分のタスクセクション */}
           <section>
-            <h2 className="text-xl font-black mb-4 border-b-4 border-black inline-block bg-[#FFE66D] px-2 transform -rotate-1">
-              今日のタスク & 期限切れ
-            </h2>
+            <div className="flex items-center justify-between mb-4 gap-2">
+              <h2 className="text-lg font-black border-b-4 border-black inline-block bg-[#FFE66D] px-2 transform -rotate-1 shrink-0">
+                今日のタスク&期限切れ
+              </h2>
+              <button
+                type="button"
+                onClick={handleAiRecommendation}
+                disabled={loadingAi || myTasks.length === 0}
+                className="bg-linear-to-r from-[#9b5de5] to-[#6f42c1] text-white px-2 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold text-[10px] hover:-translate-y-px hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-0 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] whitespace-nowrap shrink-0"
+              >
+                {loadingAi ? "考え中..." : "AIおすすめ"}
+              </button>
+            </div>
             {loading ? (
               <p className="text-center py-4 font-bold animate-pulse">
                 読み込み中...
@@ -284,7 +321,7 @@ export default function Home() {
                       }`}
                     >
                       <div className="flex items-center gap-3 overflow-hidden">
-                        <label className="inline-flex items-center cursor-pointer flex-shrink-0">
+                        <label className="inline-flex items-center cursor-pointer shrink-0">
                           <input
                             type="checkbox"
                             checked={task.is_completed ?? false}
@@ -359,14 +396,14 @@ export default function Home() {
                   <li key={friend.id} className="relative">
                     <Link
                       href={`/profile/friends/${friend.id}`}
-                      className="flex items-center gap-3 p-3 border-4 border-black rounded-xl bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all block"
+                      className="flex items-center gap-3 p-3 border-4 border-black rounded-xl bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all"
                     >
                       {index === 0 && (
                         <span className="absolute -top-3 -left-2 text-3xl transform -rotate-12 drop-shadow-md">
                           👑
                         </span>
                       )}
-                      <div className="w-10 h-10 rounded-full bg-gray-200 border-2 border-black overflow-hidden flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 border-2 border-black overflow-hidden shrink-0">
                         {friend.avatar_url ? (
                           <Image
                             src={friend.avatar_url}
@@ -396,7 +433,7 @@ export default function Home() {
                             style={{ width: `${friend.rate}%` }}
                           />
                           {/* ストライプ模様のオーバーレイ */}
-                          <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.5)_25%,rgba(255,255,255,0.5)_50%,transparent_50%,transparent_75%,rgba(255,255,255,0.5)_75%,rgba(255,255,255,0.5)_100%)] bg-[length:10px_10px] opacity-30" />
+                          <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.5)_25%,rgba(255,255,255,0.5)_50%,transparent_50%,transparent_75%,rgba(255,255,255,0.5)_75%,rgba(255,255,255,0.5)_100%)] bg-size-[10px_10px] opacity-30" />
                         </div>
                       </div>
                     </Link>
